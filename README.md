@@ -30,6 +30,11 @@ npm run dev
 Then open [http://localhost:3000](http://localhost:3000) in a browser
 and press **Start visualizer**. MOCK mode needs no keys and makes no API calls.
 
+The M3 visualizer gallery lives at
+[http://localhost:3000/gallery](http://localhost:3000/gallery): five flagship
+visualizers with a control panel (palette, intensity, speed, audio
+sensitivity, mock BPM), a picker, live fps, and auto-cycle. No keys needed.
+
 ## Env vars
 
 | Var | Purpose |
@@ -77,7 +82,7 @@ Every response is cached by input hash (`src/meta/cache.ts`) and throttled
 | --- | --- | --- |
 | M1 | Architecture + scaffold + build log | Muse Code |
 | M2 | Flyer -> EventTheme | Muse Spark vision |
-| M3 | Local live audio layer | Web Audio API (local, no model) |
+| M3 | Visual pack v1: five flagship visualizers + gallery | Muse Code (no model calls) |
 | M4 | Smart listening | Muse Voice Transcribe + Muse Spark |
 | M5 | Director + textures + crowd + open provider | Muse Image, SAM 3.1, Muse Spark Open |
 | M6 | ~50 new shaders in batches of 5-10 | Muse Code |

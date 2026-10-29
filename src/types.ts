@@ -24,6 +24,7 @@ export interface AudioFeatures {
   bass: number; // 0-1
   mid: number;
   high: number;
+  energy: number; // 0-1 overall level (M3)
   buildUp: boolean;
   drop: boolean;
   timestamp: number;
@@ -55,11 +56,21 @@ export interface ScenePlan {
   lyricWords: string[];
 }
 
+export interface VisualParam {
+  key: string; // uniform suffix: key 'p1' -> uniform u_p1
+  label: string;
+  min: number;
+  max: number;
+  def: number;
+}
+
 export interface ShaderDefinition {
   id: string;
   name: string;
   fragmentGlsl: string;
   uniforms: string[];
+  tags?: string[]; // e.g. ['m3-visual'] (M3)
+  params?: VisualParam[]; // declared tunable ranges (M3)
 }
 
 export interface DirectorInput {

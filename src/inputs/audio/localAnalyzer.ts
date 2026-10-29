@@ -31,23 +31,39 @@ export class LocalAudioAnalyzer {
     const bass = band(1, 8);
     const mid = band(8, 40);
     const high = band(40, 120);
+    const energy = Math.min(1, bass * 0.5 + mid * 0.3 + high * 0.2);
     const beat = bass > 0.55 && now - this.lastBeatAt > 280;
     if (beat) this.lastBeatAt = now;
-    return { bpm: 0, beat, onset: beat, bass, mid, high, buildUp: false, drop: false, timestamp: now };
+    return { bpm: 0, beat, onset: beat, bass, mid, high, energy, buildUp: false, drop: false, timestamp: now };
   }
 }
 
 // Deterministic mock features for dev without a mic (MOCK mode).
-export function mockFeatures(t: number, now = performance.now()): AudioFeatures {
-  const bass = Math.min(1, Math.max(0, 0.5 + 0.5 * Math.sin(t * 2.4) * Math.sin(t * 0.7)));
-  const beat = Math.sin(t * 2.4) > 0.92;
+// With bpm set (M3 gallery), the beat locks to that tempo; otherwise the
+// original free-running pattern is kept so M1/M2 behavior never changes.
+export function mockFeatures(t: number, now = performance.now(), bpm?: number): AudioFeatures {
+  const mid = 0.4 + 0.3 * Math.sin(t * 1.7 + 1);
+  const high = 0.3 + 0.25 * Math.sin(t * 3.1 + 2);
+  let bass: number;
+  let beat: boolean;
+  if (bpm === undefined) {
+    bass = Math.min(1, Math.max(0, 0.5 + 0.5 * Math.sin(t * 2.4) * Math.sin(t * 0.7)));
+    beat = Math.sin(t * 2.4) > 0.92;
+  } else {
+    const phase = (t * bpm) / 60 % 1;
+    beat = phase < 0.12;
+    const thump = phase < 0.35 ? (1 - phase / 0.35) * 0.55 : 0;
+    bass = Math.min(1, Math.max(0, 0.35 + 0.25 * Math.sin(t * 0.7) + thump));
+  }
+  const energy = Math.min(1, bass * 0.5 + mid * 0.3 + high * 0.2);
   return {
-    bpm: 126,
+    bpm: bpm ?? 126,
     beat,
     onset: beat,
     bass,
-    mid: 0.4 + 0.3 * Math.sin(t * 1.7 + 1),
-    high: 0.3 + 0.25 * Math.sin(t * 3.1 + 2),
+    mid,
+    high,
+    energy,
     buildUp: false,
     drop: false,
     timestamp: now,
