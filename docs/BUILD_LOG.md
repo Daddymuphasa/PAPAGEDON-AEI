@@ -1,0 +1,5 @@
+# PAPAGEDON AEI — Build Log
+
+Date | Milestone | Meta model/tool | What was built | Files changed
+--- | --- | --- | --- | ---
+2026-10-29 | M1 | Muse Code | Architecture + scaffold: types, Meta/Baseten clients with mock/live switch, cache + rate limiter, model stubs, local audio analyzer, director skeleton (async loop, provider switch), WebGL renderer, shader template + registry + one example bass-pulse shader wired end to end in mock mode, Next.js page + theme/director API routes, README, .gitignore | package.json, tsconfig.json, next.config.mjs, .gitignore, .env.example, src/glsl.d.ts, src/types.ts, src/meta/{config,cache,rateLimiter,metaClient,basetenClient,mock,index}.ts, src/inputs/flyer/flyer.ts, src/inputs/audio/{localAnalyzer,smartListening}.ts, src/inputs/crowd/crowdSignal.ts, src/director/director.ts, src/engine/renderer.ts, shaders/{registry.ts,template.glsl,example-bass-pulse.glsl,example-bass-pulse.ts,pack/README.md}, src/app/{layout.tsx,page.tsx}, src/app/api/{theme,director}/route.ts, README.md, docs/{BUILD_LOG.md,ARCHITECTURE.md} |
