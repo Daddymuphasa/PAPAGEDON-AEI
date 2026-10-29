@@ -36,18 +36,23 @@ and press **Start visualizer**. MOCK mode needs no keys and makes no API calls.
 | --- | ------- |
 | `AEI_LIVE` | `true` enables real Meta API calls; anything else = MOCK (default) |
 | `AEI_DIRECTOR_PROVIDER` | `muse-spark` (Meta Model API) or `muse-spark-open` (Baseten open weights) |
-| `META_API_KEY` | Meta Model API key (server-side only, never committed) |
+| `MODEL_API_KEY` | Meta Model API key (server-side only, never committed) |
+| `META_API_KEY` | Fallback alias for `MODEL_API_KEY` (either works) |
 | `BASETEN_API_KEY` | Baseten key for Muse Spark Open (server-side only, never committed) |
 
-Copy `.env.example` to `.env` and fill in keys for the LIVE demo (M7).
+Copy `.env.example` to `.env` and fill in keys for LIVE mode.
 
 ## Mock vs Live
 
-- **MOCK (default):** all model stubs in `src/meta/index.ts` return local mocks.
-  The page runs end to end: mock theme + mock audio -> director -> example shader.
-- **LIVE (`AEI_LIVE=true`):** stubs call the real clients. Clients are
-  server-side only (`src/meta/metaClient.ts`, `src/meta/basetenClient.ts`) and
-  are reached exclusively through API routes under `src/app/api/`.
+- **MOCK (default):** all model entry points in `src/meta/index.ts` return
+  local mocks, and the theme judge runs a deterministic mock verdict.
+  The page runs end to end with no keys: upload a flyer, preview the theme,
+  apply it to the visualizer, and watch the decision log.
+- **LIVE (`AEI_LIVE=true` + `MODEL_API_KEY`):** `extractTheme` and `judgeTheme`
+  call `muse-spark-1.3` via the OpenAI SDK pointed at `https://api.meta.ai/v1`.
+  Clients are server-side only (`src/meta/metaClient.ts`,
+  `src/meta/basetenClient.ts`) and are reached exclusively through API routes
+  under `src/app/api/`. Other stubs go live in later milestones.
 
 ## Cost rules
 

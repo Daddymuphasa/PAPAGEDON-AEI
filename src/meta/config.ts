@@ -7,5 +7,5 @@ export const directorProvider = (): DirectorProvider =>
 
 export const MUSE_SPARK_OPEN_MODEL_ID = 'meta-models/muse-spark-open-1026';
 
-export const metaApiKey = () => process.env.META_API_KEY ?? '';
+export const metaApiKey = () => process.env.MODEL_API_KEY ?? process.env.META_API_KEY ?? '';
 export const basetenApiKey = () => process.env.BASETEN_API_KEY ?? '';

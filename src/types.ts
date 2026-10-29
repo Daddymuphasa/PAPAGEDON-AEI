@@ -7,6 +7,14 @@ export interface EventTheme {
   energy: number; // 0-1
   motifs: string[];
   typographyFeel: string;
+  tempoBpm: { min: number; max: number }; // suggested BPM range (M2)
+  sceneSwitchSeconds: { min: number; max: number }; // suggested visual cut interval (M2)
+  suggestedShaderIds: string[]; // ids from the shader registry (M2)
+}
+
+export interface ThemeVerdict {
+  pass: boolean;
+  reason: string;
 }
 
 export interface AudioFeatures {

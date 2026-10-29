@@ -9,6 +9,9 @@ export const mockTheme: EventTheme = {
   energy: 0.85,
   motifs: ['neon', 'waves', 'silhouettes'],
   typographyFeel: 'bold condensed glow',
+  tempoBpm: { min: 95, max: 125 },
+  sceneSwitchSeconds: { min: 4, max: 12 },
+  suggestedShaderIds: ['example-bass-pulse'],
 };
 
 export const mockInsight: MusicInsight = {
