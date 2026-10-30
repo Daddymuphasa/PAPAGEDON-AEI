@@ -8,6 +8,7 @@ import type { CSSProperties } from 'react';
 import { font, ink, size } from '../../ui/theme';
 import type { AudioFeatures } from '../../../types';
 import { mockFeatures } from '../../../inputs/audio/localAnalyzer';
+import { Envelope, rawEnergy } from '../../../inputs/audio/dsp';
 import { Renderer } from '../../../engine/renderer';
 import { Crossfade } from '../../../engine/transition';
 import { FpsMonitor } from '../../../engine/fps';
@@ -76,6 +77,7 @@ export default function ShowOutput() {
     let boost = 0;
     let prevBeat = false;
     let lastNow = performance.now();
+    const env = new Envelope();
 
     const applyScene = (
       visualId: string,
@@ -209,6 +211,9 @@ export default function ShowOutput() {
           onset: blend < 0.5 ? live.beat : mock.beat,
         };
       }
+      // M6: uniforms ride a fast-attack/slow-release envelope of the raw
+      // bands instead of the analyzer's heavily smoothed energy.
+      f = { ...f, energy: env.step(rawEnergy(f), dt * 1000) };
       pulse += ((f.beat ? 1 : 0) - pulse) * (f.beat ? 0.55 : 0.07);
       if (f.beat && !prevBeat) {
         flash = Math.max(flash, (0.2 + 0.4 * f.bass) * Math.min(1.5, show.sensitivity));

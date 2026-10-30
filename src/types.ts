@@ -155,10 +155,32 @@ export interface UpcomingChange {
   inS: number; // seconds from now
 }
 
+// M6 listening profile: local read of the room, no model calls.
+export type ListeningLabel = 'house/techno' | 'afrobeats/amapiano-ish' | 'hip-hop' | 'ambient' | 'mixed';
+
+export interface ProfileSample {
+  subBass: number;
+  bass: number;
+  mid: number;
+  high: number;
+  energy: number;
+}
+
+export interface ListeningProfile {
+  bpm: number;
+  bpmRange: [number, number];
+  bassHeaviness: number; // 0-1, low-end share of the spectrum
+  brightness: number; // 0-1, high-end share
+  dynamics: number; // 0-1, energy variability over the window
+  label: ListeningLabel;
+  confidence: number; // 0-1
+}
+
 export interface PlannerInput {
   theme: EventTheme | null;
   summary: AudioSummary;
   upcomingSections?: UpcomingChange[];
+  profile?: ListeningProfile;
   current: {
     visualId: string;
     params: [number, number, number];

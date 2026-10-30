@@ -7,14 +7,19 @@ import {
   bandEdges,
   bandMean,
   bpmFromIntervals,
+  rawEnergy,
   spectralFlux,
   type BandEdges,
 } from './dsp';
+import { CALIBRATE_MS, Calibrator } from './calibration';
 
 export const FFT_SIZE = 2048;
 export const FFT_SMOOTHING = 0.35;
 const ENERGY_SMOOTH = 0.45; // previous-frame weight for steady meters
-const HIST_MAX = 120; // rolling adaptive-beat history (~1.5s at 60fps)
+const HIST_1S = 60; // ~1s rolling average at 60fps (bass, flux)
+const HIST_HALF_S = 30; // ~0.5s rolling average (sub)
+
+export type CalibrationState = 'idle' | 'calibrating' | 'ready';
 
 export class LocalAudioAnalyzer {
   private analyser: AnalyserNode | null = null;
@@ -22,14 +27,18 @@ export class LocalAudioAnalyzer {
   private cur = new Float32Array(0);
   private prev = new Float32Array(0);
   private edges: BandEdges = bandEdges(48000, FFT_SIZE);
-  private energyHist: number[] = [];
+  private bassHist: number[] = [];
   private fluxHist: number[] = [];
+  private subHist: number[] = [];
   private lastBeatAt = -1e9;
   private beatIntervals: number[] = [];
   private smoothEnergy = 0;
   private ebuf = new EnergyBuffer();
   private wasBuild = false;
   private lastBuildT = -1e9;
+  private cal = new Calibrator();
+  private calState: CalibrationState = 'idle';
+  private calStart = 0;
 
   attach(stream: MediaStream, ctx: AudioContext): void {
     this.hookUp(ctx.createMediaStreamSource(stream), ctx, false);
@@ -57,28 +66,55 @@ export class LocalAudioAnalyzer {
     return this.analyser !== null;
   }
 
+  // M6 auto-calibration: listen for ~3s, then set gain/noise floor so
+  // quiet and loud rooms both read well. Until ready, identity applies.
+  startCalibration(nowMs = performance.now()): void {
+    this.cal.start();
+    this.calState = 'calibrating';
+    this.calStart = nowMs;
+  }
+
+  get calibration(): CalibrationState {
+    return this.calState;
+  }
+
   frame(now = performance.now()): AudioFeatures {
     if (!this.analyser) return mockFeatures(now / 1000, now);
     this.analyser.getByteFrequencyData(this.freq);
     const n = this.freq.length;
     for (let i = 0; i < n; i++) this.cur[i] = this.freq[i] / 255;
-    const subBass = bandMean(this.cur, this.edges.sub[0], this.edges.sub[1]);
-    const bass = bandMean(this.cur, this.edges.bass[0], this.edges.bass[1]);
-    const mid = bandMean(this.cur, this.edges.mid[0], this.edges.mid[1]);
-    const high = bandMean(this.cur, this.edges.high[0], this.edges.high[1]);
-    const firstFrame = this.energyHist.length === 0 && this.fluxHist.length === 0;
+    const raw = {
+      subBass: bandMean(this.cur, this.edges.sub[0], this.edges.sub[1]),
+      bass: bandMean(this.cur, this.edges.bass[0], this.edges.bass[1]),
+      mid: bandMean(this.cur, this.edges.mid[0], this.edges.mid[1]),
+      high: bandMean(this.cur, this.edges.high[0], this.edges.high[1]),
+    };
+    if (this.calState === 'calibrating') {
+      this.cal.push(rawEnergy(raw));
+      if (now - this.calStart >= CALIBRATE_MS) {
+        this.cal.finish();
+        this.calState = 'ready';
+      }
+    }
+    const apply = (v: number) => this.cal.apply(v);
+    const subBass = apply(raw.subBass);
+    const bass = apply(raw.bass);
+    const mid = apply(raw.mid);
+    const high = apply(raw.high);
+    const firstFrame = this.bassHist.length === 0 && this.fluxHist.length === 0;
     const flux = firstFrame
       ? 0
       : spectralFlux(this.prev, this.cur, this.edges.bass[1], this.edges.mid[1]);
     const swap = this.prev;
     this.prev = this.cur;
     this.cur = swap;
-    const drive = (subBass + bass) / 2;
-    const dec = adaptiveBeat(drive, flux, this.energyHist, this.fluxHist, now, this.lastBeatAt);
-    this.energyHist.push(drive);
+    const dec = adaptiveBeat(bass, flux, subBass, this.bassHist, this.fluxHist, this.subHist, now, this.lastBeatAt);
+    this.bassHist.push(bass);
     this.fluxHist.push(flux);
-    if (this.energyHist.length > HIST_MAX) this.energyHist.shift();
-    if (this.fluxHist.length > HIST_MAX) this.fluxHist.shift();
+    this.subHist.push(subBass);
+    if (this.bassHist.length > HIST_1S) this.bassHist.shift();
+    if (this.fluxHist.length > HIST_1S) this.fluxHist.shift();
+    if (this.subHist.length > HIST_HALF_S) this.subHist.shift();
     if (dec.beat) {
       if (this.lastBeatAt > 0) {
         this.beatIntervals.push((now - this.lastBeatAt) / 1000);
@@ -87,8 +123,8 @@ export class LocalAudioAnalyzer {
       this.lastBeatAt = now;
     }
     const bpm = bpmFromIntervals(this.beatIntervals);
-    const rawEnergy = Math.min(1, subBass * 0.3 + bass * 0.3 + mid * 0.25 + high * 0.15);
-    this.smoothEnergy += (rawEnergy - this.smoothEnergy) * (1 - ENERGY_SMOOTH);
+    const frameEnergy = rawEnergy({ subBass, bass, mid, high });
+    this.smoothEnergy += (frameEnergy - this.smoothEnergy) * (1 - ENERGY_SMOOTH);
     const energy = this.smoothEnergy;
     const t = now / 1000;
     this.ebuf.push(t, energy);

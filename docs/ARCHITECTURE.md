@@ -1,4 +1,4 @@
-# PAPAGEDON AEI — Architecture (M5)
+# PAPAGEDON AEI — Architecture (M6)
 
 ```
 INPUT 1 flyer ──> Muse Spark vision ──> EventTheme ──┐
@@ -167,3 +167,36 @@ prompt context, plus one anticipation sentence that only appears when
 a map is attached. Control shows `Track map: analyzing / ready /
 unavailable` with a section timeline and playhead. Mock mode attaches
 a deterministic 120s two-drop map, so pre-cues work with no Modal.
+
+## M6 smart listening (local DSP, no AI)
+
+Mic opens raw (`echoCancellation`/`noiseSuppression`/`autoGainControl`
+all false) so browser voice filters never eat kicks or transients.
+
+Beats are retuned to an either-or rule (replaces the M4.1 both-must-pass
+rule): the kick arm fires when bass exceeds 1.15x its ~1s rolling
+average AND flux exceeds 1.2x its own ~1s average; the sub arm fires on
+subBass alone above 1.3x its ~0.5s average with an absolute 0.1 floor,
+for 808s. 120ms cooldown; small absolute floors on every arm so
+silence (and hi-hat-only ticks) never trigger. Confidence is the firing
+arm's threshold margin, maxed when both fire.
+
+Per-frame reactivity: `u_energy` rides a fast-attack (~15ms) /
+slow-release (~220ms) envelope follower fed by the raw bands every
+frame, on the show output and the gallery. The analyzer's heavier
+smoothing stays for meters, build/drop detection, and feat packets;
+the director's 2s tweaks and 20s plans still own big creative moves.
+
+Auto-calibration: mic/file start listens ~3s, then sets gain (loud-end
+p90 mapped to 0.5, clamped 0.5-4x) and a noise floor (quiet-end p10).
+Near-silence keeps unity so noise is never boosted. Control shows
+`Calibrating…` then `Ready`, with a Recalibrate button; mock skips it.
+
+Listening profile: every ~4s the director folds its frames into bpm
+range, bass-heaviness, brightness, and dynamics, labels the room
+(house/techno, afrobeats/amapiano-ish, hip-hop, ambient, or mixed)
+with a confidence, and logs label changes as `listen`. Each Muse Spark
+plan request carries the profile (plus one fit-to-the-music sentence
+that only appears once a profile exists); cache keys gain the label
+only when present. Control shows the label, confidence, and bpm next
+to the beat flash and confidence readout.

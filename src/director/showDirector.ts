@@ -8,14 +8,17 @@ import type {
   AudioSummary,
   EnergyArc,
   EventTheme,
+  ListeningProfile,
   ModelUsage,
   PlannerInput,
+  ProfileSample,
   ShaderDefinition,
   ShowPlan,
   ShowTransition,
   VisualizerInfo,
 } from '../types';
 import { EnergyBuffer, detectEvents, energyShifted } from './energy';
+import { PROFILE_WINDOW_S, computeProfile } from '../inputs/audio/profile';
 import { withBasePath } from '../basePath';
 import { logDecision } from './decisionLog';
 import { isCapped, recordUsage } from './credit';
@@ -64,6 +67,7 @@ export interface DirectorView {
   manualHoldS: number;
   plannerBusy: boolean;
   themeName: string;
+  profile: ListeningProfile | null;
 }
 
 export interface ShowDirectorOpts {
@@ -126,6 +130,10 @@ export class ShowDirector {
   private trackMap: TrackMap | null = null;
   private cuedDropAt: number | null = null;
   private prepDropAt: number | null = null;
+  private profSamples: ProfileSample[] = [];
+  private profBpms: number[] = [];
+  private profWindowStart: number | null = null;
+  private profile: ListeningProfile | null = null;
   private audio: { source: ShowSource; bpm: number; t0: number; fileName: string | null } = {
     source: 'mock',
     bpm: 126,
@@ -303,6 +311,7 @@ export class ShowDirector {
       this.wasBuild = false;
     }
     this.mapCues(nowMs);
+    this.listenProfile(f, nowMs);
 
     const held = nowMs < this.manualUntil;
     const phraseLen = this.arc === 'breakdown' ? BREAKDOWN_PHRASE_BEATS : PHRASE_BEATS;
@@ -405,6 +414,36 @@ export class ShowDirector {
         model: 'local',
         input: `mapped drop at ${t.toFixed(1)}s`,
         result: 'map hit: released on the drop',
+        verify: null,
+        retries: 0,
+        latencyMs: null,
+      });
+    }
+  }
+
+  // M6 listening profile: accumulate frames, recompute every ~4s,
+  // log label changes as "listen". Pure local DSP, works in mock too.
+  private listenProfile(f: AudioFeatures, nowMs: number): void {
+    if (this.profWindowStart === null) this.profWindowStart = nowMs;
+    this.profSamples.push({ subBass: f.subBass, bass: f.bass, mid: f.mid, high: f.high, energy: f.energy });
+    this.profBpms.push(f.bpm);
+    if (this.profSamples.length > 600) {
+      this.profSamples.shift();
+      this.profBpms.shift();
+    }
+    if (nowMs - this.profWindowStart < PROFILE_WINDOW_S * 1000) return;
+    const prev = this.profile?.label ?? null;
+    const next = computeProfile(this.profSamples, this.profBpms);
+    this.profile = next;
+    this.profSamples = [];
+    this.profBpms = [];
+    this.profWindowStart = nowMs;
+    if (next.label !== prev) {
+      logDecision({
+        step: 'listen',
+        model: 'local',
+        input: `room read ${next.bpm} bpm`,
+        result: `${prev ?? '—'} → ${next.label} (${Math.round(next.confidence * 100)}%)`,
         verify: null,
         retries: 0,
         latencyMs: null,
@@ -551,6 +590,7 @@ export class ShowDirector {
       lastPlans: this.lastPlans.slice(-3),
       visualizers: this.defInfos(),
       upcomingSections: this.plannerSections(now),
+      profile: this.profile ?? undefined,
     };
     const history = [...this.lastPlans.map((p) => p.visualId), this.live.visualId].slice(-2);
     let feedback: { previous: ShowPlan; errors: string[] } | undefined;
@@ -654,6 +694,7 @@ export class ShowDirector {
       manualHoldS: Math.max(0, (this.manualUntil - now * 1000) / 1000),
       plannerBusy: this.plannerBusy,
       themeName: this.opts.getTheme()?.eventName ?? '—',
+      profile: this.profile,
     };
   }
 }

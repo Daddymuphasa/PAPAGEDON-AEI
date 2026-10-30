@@ -22,6 +22,7 @@ const STEP_COLORS: Record<string, string> = {
   manual: '#ff9e64',
   cap: '#ff8095',
   map: '#35d461',
+  listen: '#c6f24e',
 };
 
 export default function DecisionLogPanel(props: { colored?: boolean; title?: string; empty?: string } = {}) {

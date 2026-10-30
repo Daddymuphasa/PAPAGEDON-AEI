@@ -7,7 +7,7 @@ import type { CSSProperties } from 'react';
 import type { EventTheme, SectionKind, TrackMap } from '../../../types';
 import { withBasePath } from '../../../basePath';
 import { mockTheme } from '../../../meta/mock';
-import { LocalAudioAnalyzer, mockFeatures } from '../../../inputs/audio/localAnalyzer';
+import { LocalAudioAnalyzer, mockFeatures, type CalibrationState } from '../../../inputs/audio/localAnalyzer';
 import { downscaleImage } from '../../../inputs/flyer/flyer';
 import { extractVerifiedTheme } from '../../../inputs/flyer/applyTheme';
 import { ShowDirector, type DirectorView } from '../../../director/showDirector';
@@ -74,6 +74,7 @@ export default function ShowControl() {
   const [flyerError, setFlyerError] = useState<string | null>(null);
   const [trackStatus, setTrackStatus] = useState<'analyzing' | 'ready' | 'unavailable'>('unavailable');
   const [trackMap, setTrackMapState] = useState<TrackMap | null>(null);
+  const [calStatus, setCalStatus] = useState<CalibrationState>('idle');
 
   const themeRef = useRef(theme);
   themeRef.current = theme;
@@ -83,6 +84,7 @@ export default function ShowControl() {
   const seqRef = useRef(0);
   const postTimes = useRef<number[]>([]);
   const mapSeq = useRef(0);
+  const calRef = useRef<CalibrationState>('idle');
 
   useEffect(() => {
     const bus = new ShowBus();
@@ -146,6 +148,11 @@ export default function ShowControl() {
       });
       postTimes.current.push(now);
       director.frame(f, now);
+      const cal = analyzer.calibration;
+      if (cal !== calRef.current) {
+        calRef.current = cal;
+        setCalStatus(cal);
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
@@ -197,9 +204,13 @@ export default function ShowControl() {
     sharedRef.current.el?.pause();
     if (s === 'mic') {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // M6: raw music in — browser voice filters would eat kicks and transients.
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+        });
         sharedRef.current.mic = stream;
         analyzerRef.current?.attach(stream, ensureCtx());
+        analyzerRef.current?.startCalibration();
       } catch {
         setAudioError('Mic blocked — allow the microphone and retry.');
         return;
@@ -265,6 +276,7 @@ export default function ShowControl() {
       el.preload = 'auto';
       sharedRef.current.el = el;
       analyzerRef.current?.attachElement(el, ensureCtx(), true);
+      analyzerRef.current?.startCalibration();
       const t0 = performance.now() + START_DELAY_MS;
       setSource('file');
       setFileName(file.name);
@@ -306,6 +318,9 @@ export default function ShowControl() {
   // Track clock for the map playhead; re-derived every render (10 Hz via view).
   const trackT = Math.max(0, (performance.now() - audioRef.current.t0) / 1000);
   const trackPct = trackMap === null ? 0 : Math.min(100, Math.max(0, (trackT / trackMap.durationS) * 100));
+  // Mock is synthetic: always ready. Live sources calibrate for ~3s first.
+  const calLabel = source === 'mock' || calStatus === 'ready' ? 'Ready' : calStatus === 'calibrating' ? 'Calibrating…' : '—';
+  const calTone = calLabel === 'Ready' ? styles.mapReady : calLabel === 'Calibrating…' ? styles.mapBusy : styles.dim;
 
   return (
     <main style={styles.page}>
@@ -381,6 +396,21 @@ export default function ShowControl() {
                 </Button>
               ))}
               {fileName !== null && source === 'file' && <span style={styles.dim}>{fileName}</span>}
+            </div>
+            <div style={styles.row}>
+              <span>Room:</span>
+              <span style={calTone}>{calLabel}</span>
+              <Button onClick={() => analyzerRef.current?.startCalibration()} disabled={source === 'mock'}>
+                Recalibrate
+              </Button>
+            </div>
+            <div style={styles.row}>
+              <span>Profile:</span>
+              <span>
+                {view?.profile
+                  ? `${view.profile.label} · ${Math.round(view.profile.confidence * 100)}% · ${view.profile.bpm} bpm`
+                  : 'listening…'}
+              </span>
             </div>
             <div style={styles.row}>
               <span>Track map:</span>

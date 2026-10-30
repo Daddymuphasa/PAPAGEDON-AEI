@@ -40,9 +40,10 @@ M4 show mode runs on two screens from the same machine: open
 [http://localhost:3000/meta/show/output](http://localhost:3000/meta/show/output) on the
 projector (fullscreen visuals only, `F` for fullscreen) and
 [http://localhost:3000/meta/show/control](http://localhost:3000/meta/show/control) on
-the laptop (log, scene + reason, countdown, meters, credits, override panel,
-blackout). The windows sync over BroadcastChannel; the output keeps playing
-if control closes. No keys needed in MOCK.
+the laptop (log, scene + reason, countdown, meters, beat/profile readouts,
+room calibration, track map, credits, override panel, blackout). The windows
+sync over BroadcastChannel; the output keeps playing if control closes. No
+keys needed in MOCK.
 
 ## Env vars
 
@@ -125,6 +126,6 @@ the call/token caps.
 | M3 | Visual pack v1: five flagship visualizers + gallery | Muse Code (no model calls) |
 | M4 | Director Live: two-speed AI director + two-window show | Muse Spark 1.3 + Muse Code |
 | M5 | Track pre-analysis (Modal compute) + director pre-cues | Modal (compute only) + Muse Code |
-| M6 | ~50 new shaders in batches of 5-10 | Muse Code |
+| M6 | Smart listening: beat retune, envelopes, calibration, profiles | Muse Code (no model calls) |
 | M7 | Full Director Mode demo in LIVE mode | all wired |
 | M8 | Polish, deploy, 3-minute demo video | — |

@@ -263,6 +263,8 @@ export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Pr
     f: feedback ? feedback.errors : null,
     // M5: only present with a track map, so keys are unchanged otherwise.
     ...(input.upcomingSections && input.upcomingSections.length > 0 ? { u: input.upcomingSections } : {}),
+    // M6: only present once the room has been profiled.
+    ...(input.profile ? { p: [input.profile.label, input.profile.bpm] } : {}),
   });
   return cached('showplan', cacheInput, 120_000, () => {
     const developer =
@@ -275,6 +277,9 @@ export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Pr
       'match the arc — drops hit hard, breakdowns breathe.' +
       (input.upcomingSections && input.upcomingSections.length > 0
         ? ' The show state lists upcoming mapped sections — anticipate them: ease in before a drop, hit on it.'
+        : '') +
+      (input.profile
+        ? ' The show state carries a local listening profile — fit the plan to it (match the sound, not a generic look).'
         : '') +
       (feedback
         ? ` Fix exactly these errors in the previous plan and keep everything else: ${feedback.errors.join('; ')}.`

@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { ShaderDefinition } from '../../types';
 import { LocalAudioAnalyzer, mockFeatures } from '../../inputs/audio/localAnalyzer';
+import { Envelope, rawEnergy } from '../../inputs/audio/dsp';
 import { Renderer } from '../../engine/renderer';
 import { Crossfade } from '../../engine/transition';
 import { FpsMonitor } from '../../engine/fps';
@@ -92,6 +93,8 @@ export default function Gallery() {
     let pulse = 0;
     let lastSwitch = performance.now();
     let frame = 0;
+    let lastT = 0;
+    const env = new Envelope();
 
     switchRef.current = (id: string) => {
       pendingId = id;
@@ -103,12 +106,16 @@ export default function Gallery() {
       const t = now / 1000;
       const p = paramsRef.current;
       const raw = audio.live ? audio.frame(now) : mockFeatures(t, now, p.bpm);
+      const dtMs = lastT === 0 ? 1000 / 60 : Math.min(100, now - lastT);
+      lastT = now;
       const f = {
         ...raw,
         bass: clamp01(raw.bass * p.sensitivity),
         mid: clamp01(raw.mid * p.sensitivity),
         high: clamp01(raw.high * p.sensitivity),
-        energy: clamp01(raw.energy * p.sensitivity),
+        // M6: uniforms ride a fast-attack/slow-release envelope of the raw
+        // bands instead of the analyzer's heavily smoothed energy.
+        energy: env.step(clamp01(rawEnergy(raw) * p.sensitivity), dtMs),
       };
       pulse += ((f.beat ? 1 : 0) - pulse) * (f.beat ? 0.55 : 0.07);
 
