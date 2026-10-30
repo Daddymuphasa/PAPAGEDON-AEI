@@ -2,6 +2,7 @@
 // into a ScenePlan. Runs on its own async tick — the render loop NEVER
 // awaits it; it only ever reads director.plan.
 import type { DirectorInput, ScenePlan } from '../types';
+import { withBasePath } from '../basePath';
 
 export const defaultPlan: ScenePlan = {
   shaderId: 'example-bass-pulse',
@@ -38,7 +39,7 @@ export class DirectorAgent {
           return;
         }
         // LIVE: fire-and-forget; the render loop keeps using the last plan.
-        fetch('/api/director', {
+        fetch(withBasePath('/api/director'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(getInput()),

@@ -1,0 +1,60 @@
+/* Global UI baseline: only what inline styles can't express.
+   Tokens live in src/app/ui/theme.ts; this file covers normalization,
+   focus visibility, native-control theming, and the narrow-screen collapse. */
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: #0a0a0a;
+  color: #f2f2f2;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+a:focus-visible {
+  outline: 2px solid #00e5ff;
+  outline-offset: 2px;
+}
+
+input[type='range'],
+input[type='checkbox'],
+input[type='color'] {
+  accent-color: #00e5ff;
+  cursor: pointer;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 5px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .aei-grid-2col {
+    grid-template-columns: 1fr !important;
+  }
+}

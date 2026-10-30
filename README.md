@@ -27,13 +27,22 @@ npm install
 npm run dev
 ```
 
-Then open [http://localhost:3000](http://localhost:3000) in a browser
+Then open [http://localhost:3000/meta](http://localhost:3000/meta) in a browser
 and press **Start visualizer**. MOCK mode needs no keys and makes no API calls.
+(The app is served under the `/meta` base path, matching papagedon.com/meta.)
 
 The M3 visualizer gallery lives at
-[http://localhost:3000/gallery](http://localhost:3000/gallery): five flagship
+[http://localhost:3000/meta/gallery](http://localhost:3000/meta/gallery): five flagship
 visualizers with a control panel (palette, intensity, speed, audio
 sensitivity, mock BPM), a picker, live fps, and auto-cycle. No keys needed.
+
+M4 show mode runs on two screens from the same machine: open
+[http://localhost:3000/meta/show/output](http://localhost:3000/meta/show/output) on the
+projector (fullscreen visuals only, `F` for fullscreen) and
+[http://localhost:3000/meta/show/control](http://localhost:3000/meta/show/control) on
+the laptop (log, scene + reason, countdown, meters, credits, override panel,
+blackout). The windows sync over BroadcastChannel; the output keeps playing
+if control closes. No keys needed in MOCK.
 
 ## Env vars
 
@@ -44,20 +53,46 @@ sensitivity, mock BPM), a picker, live fps, and auto-cycle. No keys needed.
 | `MODEL_API_KEY` | Meta Model API key (server-side only, never committed) |
 | `META_API_KEY` | Fallback alias for `MODEL_API_KEY` (either works) |
 | `BASETEN_API_KEY` | Baseten key for Muse Spark Open (server-side only, never committed) |
+| `MODAL_ANALYZE_URL` | Modal track-analysis endpoint URL (M5, optional; unset = live analysis only) |
+| `MODAL_ANALYZE_TOKEN` | Shared token for the Modal endpoint (server-side only, never committed) |
 
 Copy `.env.example` to `.env` and fill in keys for LIVE mode.
 
 ## Mock vs Live
 
 - **MOCK (default):** all model entry points in `src/meta/index.ts` return
-  local mocks, and the theme judge runs a deterministic mock verdict.
-  The page runs end to end with no keys: upload a flyer, preview the theme,
-  apply it to the visualizer, and watch the decision log.
-- **LIVE (`AEI_LIVE=true` + `MODEL_API_KEY`):** `extractTheme` and `judgeTheme`
-  call `muse-spark-1.3` via the OpenAI SDK pointed at `https://api.meta.ai/v1`.
-  Clients are server-side only (`src/meta/metaClient.ts`,
-  `src/meta/basetenClient.ts`) and are reached exclusively through API routes
-  under `src/app/api/`. Other stubs go live in later milestones.
+  local mocks, the theme judge runs a deterministic mock verdict, and the
+  show planner rotates varied realistic plans. Everything runs with no keys:
+  the flyer page, the gallery, and the full two-window show.
+- **LIVE (`AEI_LIVE=true` + `MODEL_API_KEY`):** `extractTheme`, `judgeTheme`
+  and `planShow` call `muse-spark-1.3` via the OpenAI SDK pointed at
+  `https://api.meta.ai/v1`. Clients are server-side only
+  (`src/meta/metaClient.ts`, `src/meta/basetenClient.ts`) and are reached
+  exclusively through API routes under `src/app/api/`. Other stubs go live
+  in later milestones. The laptop view shows live call/token totals against
+  your caps (default 100 calls, editable); at the cap the show continues on
+  the local layer only.
+
+## Track maps (M5)
+
+When a track file loads in show control, the app POSTs its bytes to
+`POST /api/track/analyze`, which proxies to a Modal web endpoint
+(`modal/analyze_track.py`) that analyzes the whole file — tempo, beats,
+downbeats, a 2 Hz energy curve, and labeled sections
+(intro/build/drop/breakdown/outro) — and returns a track map. The
+director verifies the map, shows it as a section timeline with a
+playhead, pre-cues ~2s before mapped drops (holding intensity back,
+then releasing on the drop), and hands Muse Spark the upcoming
+sections with each plan request.
+
+**Modal is compute only.** The endpoint runs CPU DSP (librosa/numpy:
+onset/beat tracking, RMS energy, rule-based segmentation) — no model
+weights, no inference calls. All AI calls in this repo stay on Meta
+models (Muse Spark via the Meta Model API). If the Modal vars are
+unset, the call fails, or analysis takes >30s, the route answers
+`{ ok:false }` and the show continues on live analysis only. Mock mode
+uses a built-in deterministic map, so pre-cues work with no Modal
+and no keys. Deploy notes live in `modal/README.md`.
 
 ## Cost rules
 
@@ -67,14 +102,19 @@ batch. Real API calls happen in exactly these places, all server-side:
 | Call site | Model | When |
 | --- | --- | --- |
 | `extractTheme` | Muse Spark (vision) | once per event flyer (M2) |
+| `planShow` | Muse Spark | every 20s or on energy shifts, ≥8s apart (M4) |
 | `generateTexture` | Muse Image | once per event (M5) |
-| `transcribeChunk` | Muse Voice Transcribe | rolling 10-30s chunks (M4) |
-| `analyzeMusic` | Muse Spark | rolling 10-30s chunks (M4) |
+| `transcribeChunk` | Muse Voice Transcribe | rolling 10-30s chunks (later) |
+| `analyzeMusic` | Muse Spark | rolling 10-30s chunks (later) |
 | `segmentCrowd` | SAM 3.1 | one frame every ~3s, optional (M5) |
 | `planScene` | Muse Spark or Muse Spark Open (Baseten) | director tick, ~2s+, cached (M5) |
 
 Every response is cached by input hash (`src/meta/cache.ts`) and throttled
 (`src/meta/rateLimiter.ts`). The render loop never waits on a model call.
+
+The M5 Modal call is not in the table above: it is CPU signal processing
+(librosa DSP, once per track file), not a model call, and it never touches
+the call/token caps.
 
 ## Milestones
 
@@ -83,8 +123,8 @@ Every response is cached by input hash (`src/meta/cache.ts`) and throttled
 | M1 | Architecture + scaffold + build log | Muse Code |
 | M2 | Flyer -> EventTheme | Muse Spark vision |
 | M3 | Visual pack v1: five flagship visualizers + gallery | Muse Code (no model calls) |
-| M4 | Smart listening | Muse Voice Transcribe + Muse Spark |
-| M5 | Director + textures + crowd + open provider | Muse Image, SAM 3.1, Muse Spark Open |
+| M4 | Director Live: two-speed AI director + two-window show | Muse Spark 1.3 + Muse Code |
+| M5 | Track pre-analysis (Modal compute) + director pre-cues | Modal (compute only) + Muse Code |
 | M6 | ~50 new shaders in batches of 5-10 | Muse Code |
 | M7 | Full Director Mode demo in LIVE mode | all wired |
 | M8 | Polish, deploy, 3-minute demo video | — |

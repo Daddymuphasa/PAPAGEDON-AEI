@@ -5,16 +5,18 @@ import type {
   DirectorInput,
   EventTheme,
   MusicInsight,
+  PlannerInput,
   ScenePlan,
+  ShowPlan,
   ThemeVerdict,
 } from '../types';
 import { listShaders } from '../../shaders/registry';
 import { verifyThemePlain } from '../inputs/flyer/verifyTheme';
 import { cached } from './cache';
 import { directorProvider, isLive } from './config';
-import { chatJson, metaCall } from './metaClient';
+import { chatJson, chatJsonWithUsage, metaCall } from './metaClient';
 import { basetenCall } from './basetenClient';
-import { mockCrowdSignal, mockInsight, mockPlan, mockTheme } from './mock';
+import { mockCrowdSignal, mockInsight, mockPlan, mockShowPlan, mockTheme } from './mock';
 
 function assertServer() {
   if (typeof window !== 'undefined') throw new Error('meta stubs are server-side only');
@@ -200,4 +202,94 @@ export async function planScene(input: DirectorInput): Promise<ScenePlan> {
     );
   }
   return cached('plan', key, 30_000, () => metaCall<ScenePlan>('/muse-spark/direct', { input }));
+}
+
+const SHOWPLAN_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    visualId: { type: 'string' },
+    params: { type: 'array', items: { type: 'number' }, minItems: 3, maxItems: 3 },
+    intensity: { type: 'number' },
+    speed: { type: 'number' },
+    paletteEmphasis: { type: 'integer' },
+    transition: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        type: { type: 'string', enum: ['crossfade', 'cut', 'flash-cut'] },
+        durationMs: { type: 'number' },
+      },
+      required: ['type', 'durationMs'],
+    },
+    energyArc: {
+      type: 'string',
+      enum: ['build', 'peak', 'sustain', 'breakdown', 'release'],
+    },
+    sectionSeconds: { type: 'number' },
+    reason: { type: 'string' },
+  },
+  required: [
+    'visualId',
+    'params',
+    'intensity',
+    'speed',
+    'paletteEmphasis',
+    'transition',
+    'energyArc',
+    'sectionSeconds',
+    'reason',
+  ],
+};
+
+export interface PlanFeedback {
+  previous: ShowPlan;
+  errors: string[];
+}
+
+let showCursor = 0;
+
+// M4: the slow creative layer. One plan per call; the client verifies and
+// retries with feedback. Mock rotates varied realistic plans (no keys).
+export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Promise<ShowPlan> {
+  assertServer();
+  if (!isLive()) return mockShowPlan(input, showCursor++);
+  const r1 = (n: number) => Math.round(n * 10) / 10;
+  const cacheInput = JSON.stringify({
+    v: input.current.visualId,
+    e: input.summary.events,
+    a: r1(input.summary.avgEnergy),
+    g: input.theme?.genre ?? '',
+    f: feedback ? feedback.errors : null,
+    // M5: only present with a track map, so keys are unchanged otherwise.
+    ...(input.upcomingSections && input.upcomingSections.length > 0 ? { u: input.upcomingSections } : {}),
+  });
+  return cached('showplan', cacheInput, 120_000, () => {
+    const developer =
+      'You direct a live music visual show. Given the theme, the last-20s audio summary, ' +
+      'current scene and the last 3 plans, pick the next scene as strict JSON: visualId (only from ' +
+      'the provided visualizer list), params (3 numbers, each inside its declared min-max range), ' +
+      'intensity 0-1, speed 0-2, paletteEmphasis (integer 0-3), transition {crossfade|cut|flash-cut, ' +
+      'durationMs 0-2000}, energyArc {build|peak|sustain|breakdown|release}, sectionSeconds 10-60, ' +
+      'reason (one plain-English line). Never repeat the current visual more than twice in a row; ' +
+      'match the arc — drops hit hard, breakdowns breathe.' +
+      (input.upcomingSections && input.upcomingSections.length > 0
+        ? ' The show state lists upcoming mapped sections — anticipate them: ease in before a drop, hit on it.'
+        : '') +
+      (feedback
+        ? ` Fix exactly these errors in the previous plan and keep everything else: ${feedback.errors.join('; ')}.`
+        : '');
+    const userText = feedback
+      ? `Previous plan: ${JSON.stringify(feedback.previous)}\nShow state: ${JSON.stringify(input)}`
+      : `Show state: ${JSON.stringify(input)}`;
+    return chatJsonWithUsage<ShowPlan>({
+      key: 'showplan',
+      messages: [
+        { role: 'developer', content: developer },
+        { role: 'user', content: userText },
+      ],
+      schemaName: 'ShowPlan',
+      schema: SHOWPLAN_SCHEMA,
+    }).then((r) => r.data);
+  });
 }

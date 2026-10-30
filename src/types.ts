@@ -24,6 +24,9 @@ export interface AudioFeatures {
   bass: number; // 0-1
   mid: number;
   high: number;
+  subBass: number; // 0-1 (M4.1)
+  flux: number; // spectral flux, normalized (M4.1)
+  beatConfidence: number; // 0-1 (M4.1)
   energy: number; // 0-1 overall level (M3)
   buildUp: boolean;
   drop: boolean;
@@ -78,4 +81,101 @@ export interface DirectorInput {
   features: AudioFeatures;
   insight: MusicInsight | null;
   crowd: CrowdSignal | null;
+}
+
+// ---- M4 show director types (M1 ScenePlan is left untouched) ----
+
+export type EnergyArc = 'build' | 'peak' | 'sustain' | 'breakdown' | 'release';
+export type ShowTransitionType = 'crossfade' | 'cut' | 'flash-cut';
+export type AudioEvent = 'build' | 'drop' | 'breakdown';
+
+export interface ShowTransition {
+  type: ShowTransitionType;
+  durationMs: number;
+}
+
+export interface ShowPlan {
+  visualId: string;
+  params: [number, number, number];
+  intensity: number; // 0-1
+  speed: number; // 0-2
+  paletteEmphasis: number; // palette index 0-3
+  transition: ShowTransition;
+  energyArc: EnergyArc;
+  sectionSeconds: number;
+  reason: string;
+}
+
+export interface AudioSummary {
+  avgEnergy: number;
+  peakEnergy: number;
+  avgBass: number;
+  avgMid: number;
+  avgHigh: number;
+  events: AudioEvent[];
+  bpm: number;
+  seconds: number;
+}
+
+export interface VisualizerInfo {
+  id: string;
+  name: string;
+  tags: string[];
+  params: VisualParam[];
+}
+
+// M5 track map: whole-file pre-analysis (Modal DSP, compute only). Times
+// are seconds from track start; the director uses sections to anticipate.
+export type SectionKind = 'intro' | 'build' | 'drop' | 'breakdown' | 'outro';
+
+export interface TrackSection {
+  start: number;
+  end: number;
+  kind: SectionKind;
+}
+
+export interface TrackEnergyPoint {
+  t: number;
+  v: number; // 0-1
+}
+
+export interface TrackMap {
+  durationS: number;
+  bpm: number;
+  beats: number[];
+  downbeats: number[];
+  energy: TrackEnergyPoint[];
+  sections: TrackSection[];
+}
+
+export interface UpcomingChange {
+  at: number; // section boundary in track seconds
+  from: SectionKind;
+  to: SectionKind;
+  inS: number; // seconds from now
+}
+
+export interface PlannerInput {
+  theme: EventTheme | null;
+  summary: AudioSummary;
+  upcomingSections?: UpcomingChange[];
+  current: {
+    visualId: string;
+    params: [number, number, number];
+    intensity: number;
+    speed: number;
+    paletteEmphasis: number;
+  };
+  lastPlans: ShowPlan[];
+  visualizers: VisualizerInfo[];
+}
+
+export interface ModelUsage {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  latencyMs: number;
+  mock: boolean;
+  status: string;
 }

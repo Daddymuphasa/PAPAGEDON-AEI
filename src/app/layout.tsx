@@ -3,6 +3,8 @@ export const metadata = {
   description: 'Audio Experience Intelligence — Director Mode visualizer',
 };
 
+import './globals.css';
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">

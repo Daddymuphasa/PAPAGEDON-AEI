@@ -23,6 +23,8 @@ import { circuitVeins } from '../../../shaders/m3/circuit-veins';
 import { warpTunnel } from '../../../shaders/m3/warp-tunnel';
 import { prismBurst } from '../../../shaders/m3/prism-burst';
 import ControlPanel, { type SliderKey } from './ControlPanel';
+import { Button } from '../ui/controls';
+import { font, ink, overlay, signal, size, space, tabular } from '../ui/theme';
 
 const DEFS = [hexCore, aegisScales, circuitVeins, warpTunnel, prismBurst];
 const AUTO_CYCLE_MS = 12000;
@@ -225,27 +227,28 @@ export default function Gallery() {
     <main style={styles.full}>
       <canvas ref={canvasRef} style={styles.canvas} />
       <div style={styles.left}>
-        <strong>Gallery</strong>
-        {status && <span>{status}</span>}
+        <h2 style={styles.head}>Gallery</h2>
+        {status && <span style={styles.status}>{status}</span>}
         {error && <span style={styles.error}>{error}</span>}
         <div style={styles.picker}>
           {registered
             .filter((d) => d.tags?.includes(M3_TAG))
             .map((d) => (
-              <button
+              <Button
                 key={d.id}
-                style={d.id === activeId ? styles.pickActive : styles.pick}
+                kind={d.id === activeId ? 'active' : 'default'}
                 onClick={() => pick(d)}
+                style={styles.pick}
               >
                 {d.name}
-              </button>
+              </Button>
             ))}
         </div>
         <div style={styles.row}>
-          <span>
+          <span style={styles.fps}>
             {fps} fps · scale {scale}
           </span>
-          <label>
+          <label style={styles.auto}>
             <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} />{' '}
             Auto-cycle
           </label>
@@ -270,28 +273,28 @@ export default function Gallery() {
 }
 
 const styles: Record<string, CSSProperties> = {
-  full: { position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' },
+  full: { position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: ink.bg },
   canvas: { width: '100%', height: '100%', display: 'block' },
   left: {
+    ...overlay,
     position: 'absolute',
     left: 12,
     top: 12,
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
-    background: 'rgba(0,0,0,0.72)',
-    border: '1px solid #333',
-    borderRadius: 6,
+    gap: space.sm,
     padding: '10px 12px',
-    fontFamily: 'system-ui, sans-serif',
-    fontSize: 13,
-    color: '#fff',
+    fontFamily: font.ui,
+    fontSize: size.small,
     maxWidth: 300,
   },
-  right: { position: 'absolute', right: 12, top: 12, width: 280, color: '#fff' },
+  head: { fontSize: size.head, fontWeight: 700, margin: 0 },
+  status: { color: ink.dim },
+  right: { position: 'absolute', right: 12, top: 12, width: 300, color: ink.text },
   picker: { display: 'flex', flexDirection: 'column', gap: 4 },
-  pick: { textAlign: 'left', cursor: 'pointer' },
-  pickActive: { textAlign: 'left', cursor: 'pointer', fontWeight: 'bold' },
+  pick: { textAlign: 'left' },
   row: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  error: { color: '#ff8095' },
+  fps: { fontFamily: font.mono, fontSize: size.data, color: ink.dim, ...tabular },
+  auto: { display: 'flex', alignItems: 'center', gap: 4 },
+  error: { color: signal.dangerText },
 };

@@ -1,6 +1,7 @@
 // INPUT 1 client helpers (M2): downscale -> extract -> judge.
 // All model calls stay server-side behind /api/theme*.
 import type { EventTheme, ThemeVerdict } from '../../types';
+import { withBasePath } from '../../basePath';
 
 export interface ThemeResponse {
   theme: EventTheme;
@@ -43,7 +44,7 @@ export async function requestTheme(
   flyerDataUrl: string,
   feedback?: { previousTheme: EventTheme; errors: string[] },
 ): Promise<ThemeResponse> {
-  const res = await fetch('/api/theme', {
+  const res = await fetch(withBasePath('/api/theme'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ flyerDataUrl, feedback }),
@@ -53,7 +54,7 @@ export async function requestTheme(
 }
 
 export async function requestJudge(flyerDataUrl: string, theme: EventTheme): Promise<JudgeResponse> {
-  const res = await fetch('/api/theme/judge', {
+  const res = await fetch(withBasePath('/api/theme/judge'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ flyerDataUrl, theme }),

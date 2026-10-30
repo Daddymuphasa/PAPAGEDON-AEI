@@ -1,6 +1,6 @@
 // Live decision log (M2): visible plan -> act -> observe -> verify trace.
 // In-memory only, capped at the last MAX_ENTRIES. Never stores image data.
-export type DecisionStep = 'plan' | 'act' | 'observe' | 'verify';
+export type DecisionStep = 'plan' | 'act' | 'observe' | 'verify' | 'local' | 'manual' | 'cap' | 'map';
 
 export interface DecisionEntry {
   id: number;

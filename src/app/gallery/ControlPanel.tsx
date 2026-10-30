@@ -3,15 +3,17 @@
 // M3 control panel: palette preset or 3 custom colours, global sliders,
 // plus the active visualizer's own param sliders.
 import type { CSSProperties } from 'react';
-import type { VisualParam } from '../../../types';
-import { BPM, INTENSITY, PALETTE_PRESETS, SENSITIVITY, SPEED } from '../../../engine/visualParams';
+import type { VisualParam } from '../../types';
+import { BPM, INTENSITY, PALETTE_PRESETS, SENSITIVITY, SPEED } from '../../engine/visualParams';
+import { SliderRow } from '../ui/controls';
+import { font, ink, input, overlay, size, space } from '../ui/theme';
 
 export type SliderKey = 'intensity' | 'speed' | 'sensitivity' | 'bpm';
 
 const SLIDERS: { key: SliderKey; label: string; min: number; max: number; step: number }[] = [
   { key: 'intensity', label: 'Intensity', min: INTENSITY.min, max: INTENSITY.max, step: 0.01 },
   { key: 'speed', label: 'Speed', min: SPEED.min, max: SPEED.max, step: 0.01 },
-  { key: 'sensitivity', label: 'Audio sensitivity', min: SENSITIVITY.min, max: SENSITIVITY.max, step: 0.01 },
+  { key: 'sensitivity', label: 'Sensitivity', min: SENSITIVITY.min, max: SENSITIVITY.max, step: 0.01 },
   { key: 'bpm', label: 'Mock BPM', min: BPM.min, max: BPM.max, step: 1 },
 ];
 
@@ -26,14 +28,19 @@ export default function ControlPanel(props: {
   onCustom(c: [string, string, string]): void;
   onSlider(key: SliderKey, v: number): void;
   onExtra(i: number, v: number): void;
+  bare?: boolean;
 }) {
   const { preset, custom, values, visualName, visualParams, extra } = props;
   return (
-    <div style={styles.panel}>
-      <strong>Controls</strong>
+    <div style={props.bare ? styles.bare : styles.panel}>
+      {props.bare ? null : <h2 style={styles.head}>Controls</h2>}
       <label style={styles.row}>
-        Palette:{' '}
-        <select value={preset} onChange={(e) => props.onPreset(Number(e.target.value))}>
+        <span style={styles.label}>Palette</span>
+        <select
+          value={preset}
+          onChange={(e) => props.onPreset(Number(e.target.value))}
+          style={styles.select}
+        >
           {PALETTE_PRESETS.map((p, i) => (
             <option key={p.name} value={i}>
               {p.name}
@@ -43,49 +50,47 @@ export default function ControlPanel(props: {
         </select>
       </label>
       {preset === -1 && (
-        <div style={styles.row}>
+        <div style={styles.swatches}>
           {custom.map((c, i) => (
             <input
               key={i}
               type="color"
               value={c}
+              title={`Custom colour ${i + 1}`}
               onChange={(e) => {
                 const next = [...custom] as [string, string, string];
                 next[i] = e.target.value;
                 props.onCustom(next);
               }}
+              style={styles.color}
             />
           ))}
         </div>
       )}
       {SLIDERS.map((s) => (
-        <label key={s.key} style={styles.row}>
-          {s.label}: {values[s.key]}
-          <input
-            type="range"
-            min={s.min}
-            max={s.max}
-            step={s.step}
-            value={values[s.key]}
-            onChange={(e) => props.onSlider(s.key, Number(e.target.value))}
-            style={styles.slider}
-          />
-        </label>
+        <SliderRow
+          key={s.key}
+          label={s.label}
+          display={s.key === 'bpm' ? String(values[s.key]) : values[s.key].toFixed(2)}
+          min={s.min}
+          max={s.max}
+          step={s.step}
+          value={values[s.key]}
+          onChange={(v) => props.onSlider(s.key, v)}
+        />
       ))}
-      <strong style={styles.sub}>{visualName}</strong>
+      <h3 style={styles.sub}>{visualName}</h3>
       {visualParams.map((p, i) => (
-        <label key={p.key} style={styles.row}>
-          {p.label}: {extra[i].toFixed(2)}
-          <input
-            type="range"
-            min={p.min}
-            max={p.max}
-            step={0.01}
-            value={extra[i]}
-            onChange={(e) => props.onExtra(i, Number(e.target.value))}
-            style={styles.slider}
-          />
-        </label>
+        <SliderRow
+          key={p.key}
+          label={p.label}
+          display={extra[i].toFixed(2)}
+          min={p.min}
+          max={p.max}
+          step={0.01}
+          value={extra[i]}
+          onChange={(v) => props.onExtra(i, v)}
+        />
       ))}
     </div>
   );
@@ -93,17 +98,20 @@ export default function ControlPanel(props: {
 
 const styles: Record<string, CSSProperties> = {
   panel: {
+    ...overlay,
     display: 'flex',
     flexDirection: 'column',
-    gap: 8,
-    background: 'rgba(0,0,0,0.72)',
-    border: '1px solid #333',
-    borderRadius: 6,
+    gap: space.sm,
     padding: '10px 12px',
-    fontFamily: 'system-ui, sans-serif',
-    fontSize: 13,
+    fontFamily: font.ui,
+    fontSize: size.small,
   },
-  row: { display: 'flex', alignItems: 'center', gap: 8 },
-  slider: { flex: 1 },
-  sub: { marginTop: 4 },
+  bare: { display: 'flex', flexDirection: 'column', gap: space.sm },
+  head: { fontSize: size.body, fontWeight: 700, margin: 0 },
+  row: { display: 'flex', alignItems: 'center', gap: space.sm },
+  label: { width: 128, flexShrink: 0 },
+  select: { ...input, flex: 1, minWidth: 0 },
+  swatches: { display: 'flex', gap: space.sm },
+  color: { ...input, padding: 2, width: 52, height: 30 },
+  sub: { fontSize: size.small, fontWeight: 700, color: ink.dim, margin: 0, marginTop: space.xs },
 };

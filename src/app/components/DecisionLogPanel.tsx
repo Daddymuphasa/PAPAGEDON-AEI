@@ -5,36 +5,57 @@ import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import type { DecisionEntry } from '../../director/decisionLog';
 import { clearDecisions, getDecisions, subscribeDecisions } from '../../director/decisionLog';
+import { Button } from '../ui/controls';
+import { font, ink, overlay, signal, size } from '../ui/theme';
 
 function verifyText(v: DecisionEntry['verify']): string {
   if (!v) return '—';
   return `${v.pass ? 'PASS' : 'FAIL'}: ${v.reason}`;
 }
 
-export default function DecisionLogPanel() {
+const STEP_COLORS: Record<string, string> = {
+  local: '#8ab4ff',
+  plan: '#c792ea',
+  verify: '#ffd166',
+  act: '#7bfff2',
+  observe: '#9aa0a6',
+  manual: '#ff9e64',
+  cap: '#ff8095',
+  map: '#35d461',
+};
+
+export default function DecisionLogPanel(props: { colored?: boolean; title?: string; empty?: string } = {}) {
   const [entries, setEntries] = useState<DecisionEntry[]>(() => [...getDecisions()].reverse());
 
   useEffect(() => subscribeDecisions(() => setEntries([...getDecisions()].reverse())), []);
 
   return (
-    <aside style={styles.panel}>
+    <aside style={{ ...styles.panel, ...(props.colored ? styles.docked : null) }}>
       <div style={styles.head}>
-        <strong>Decision log</strong>
-        <button style={styles.mini} onClick={clearDecisions}>
+        <h2 style={styles.title}>{props.title ?? 'Decision log'}</h2>
+        <Button kind="ghost" onClick={clearDecisions} style={styles.mini}>
           Clear
-        </button>
+        </Button>
       </div>
-      {entries.length === 0 && <div style={styles.empty}>No decisions yet — upload a flyer.</div>}
+      {entries.length === 0 && (
+        <div style={styles.empty}>{props.empty ?? 'No decisions yet — upload a flyer.'}</div>
+      )}
       <ol style={styles.list}>
         {entries.map((e) => (
           <li key={e.id} style={styles.item}>
-            <span style={styles.dim}>{e.time}</span> <span style={styles.step}>{e.step}</span>{' '}
+            <span style={styles.dim}>{e.time}</span>{' '}
+            <span style={{ ...styles.step, ...(props.colored ? { color: STEP_COLORS[e.step] ?? '#fff' } : null) }}>
+              {e.step}
+            </span>{' '}
             <span style={styles.dim}>[{e.model}]</span>
             <br />
             <span>{e.input}</span> → <span>{e.result}</span>
             <br />
+            <span style={e.verify?.pass === false ? styles.fail : styles.dim}>
+              verify: {verifyText(e.verify)}
+            </span>
             <span style={styles.dim}>
-              verify: {verifyText(e.verify)} · retries: {e.retries}
+              {' '}· retries: {e.retries}
               {e.latencyMs !== null ? ` · ${e.latencyMs}ms` : ''}
             </span>
           </li>
@@ -46,25 +67,26 @@ export default function DecisionLogPanel() {
 
 const styles: Record<string, CSSProperties> = {
   panel: {
+    ...overlay,
     position: 'absolute',
     top: 12,
     right: 12,
-    width: 340,
+    width: 360,
     maxHeight: '70vh',
     overflowY: 'auto',
-    background: 'rgba(0,0,0,0.72)',
-    border: '1px solid #333',
-    borderRadius: 6,
-    padding: '8px 10px',
-    fontFamily: 'ui-monospace, monospace',
-    fontSize: 11,
+    padding: '10px 12px',
+    fontFamily: font.mono,
+    fontSize: size.data,
     lineHeight: 1.5,
   },
-  head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  mini: { fontSize: 11, cursor: 'pointer' },
-  empty: { opacity: 0.6 },
+  docked: { position: 'static', width: 'auto', maxHeight: 'none', background: ink.panel },
+  head: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  title: { fontFamily: font.ui, fontSize: size.small, fontWeight: 700, margin: 0 },
+  mini: { fontSize: size.data, padding: '3px 10px' },
+  empty: { color: ink.dim },
   list: { listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 },
-  item: { borderTop: '1px solid #222', paddingTop: 6 },
-  dim: { opacity: 0.6 },
-  step: { fontWeight: 'bold' },
+  item: { borderTop: `1px solid ${ink.line}`, paddingTop: 6 },
+  dim: { color: ink.dim },
+  step: { fontWeight: 700 },
+  fail: { color: signal.dangerText },
 };
