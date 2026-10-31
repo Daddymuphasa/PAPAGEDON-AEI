@@ -4,6 +4,11 @@ import glsl from './aegis-scales.glsl';
 export const aegisScales: ShaderDefinition = {
   id: 'aegis-scales',
   name: 'Aegis Scales',
+  meta: {
+    themeTags: ['armor', 'metallic', 'dark'],
+    energyRange: [0.2, 0.7],
+    moods: ['strong', 'dark', 'sleek'],
+  },
   fragmentGlsl: glsl,
   uniforms: [
     'u_time',
@@ -21,6 +26,12 @@ export const aegisScales: ShaderDefinition = {
     'u_p3',
     'u_resolution',
     'u_palette',
+    'u_eventTex',
+    'u_texMix',
+    'u_segMask',
+    'u_perfBox',
+    'u_motion',
+    'u_segMix',
   ],
   tags: ['m3-visual'],
   params: [

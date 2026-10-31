@@ -9,21 +9,46 @@ import { font, ink, size } from '../../ui/theme';
 import type { AudioFeatures } from '../../../types';
 import { mockFeatures } from '../../../inputs/audio/localAnalyzer';
 import { Envelope, rawEnergy } from '../../../inputs/audio/dsp';
-import { Renderer } from '../../../engine/renderer';
+import { NO_SEG, Renderer, type SegUniforms } from '../../../engine/renderer';
 import { Crossfade } from '../../../engine/transition';
 import { FpsMonitor } from '../../../engine/fps';
 import { DEFAULT_VISUAL_PARAMS } from '../../../engine/visualParams';
 import { BeatLatch, isFeatPacket, isStreamStale } from '../../../director/featureStream';
+import { DEFAULT_TEX_MIX, TEX_BEAT_PUSH } from '../../../director/texturePick';
 import { getShader, listShaders } from '../../../../shaders/registry';
-import { M3_TAG, registerVisualizer } from '../../../../shaders/verifyVisualizer';
+import { LIB_TAG, M3_TAG, registerVisualizer } from '../../../../shaders/verifyVisualizer';
 import { hexCore } from '../../../../shaders/m3/hex-core';
 import { aegisScales } from '../../../../shaders/m3/aegis-scales';
 import { circuitVeins } from '../../../../shaders/m3/circuit-veins';
 import { warpTunnel } from '../../../../shaders/m3/warp-tunnel';
 import { prismBurst } from '../../../../shaders/m3/prism-burst';
+import { nanoHex } from '../../../../shaders/batch0/nano-hex';
+import { particleGalaxy } from '../../../../shaders/batch0/particle-galaxy';
+import { liquidMirror } from '../../../../shaders/batch0/liquid-mirror';
+import { emberField } from '../../../../shaders/batch0/ember-field';
+import { finalAscension } from '../../../../shaders/batch0/final-ascension';
+import { kineticColonnade } from '../../../../shaders/batch0/kinetic-colonnade';
+import { moltenDunes } from '../../../../shaders/batch0/molten-dunes';
+import { bassPortal } from '../../../../shaders/batch0/bass-portal';
 import { ShowBus, type BusMessage, type FeatPacket } from '../../../director/showBus';
+import { decodeGrid } from '../../../vision/signals';
+import { SegEaser } from '../../../vision/segEase';
 
-const DEFS = [hexCore, aegisScales, circuitVeins, warpTunnel, prismBurst];
+const DEFS = [
+  hexCore,
+  aegisScales,
+  circuitVeins,
+  warpTunnel,
+  prismBurst,
+  nanoHex,
+  particleGalaxy,
+  liquidMirror,
+  emberField,
+  finalAscension,
+  kineticColonnade,
+  moltenDunes,
+  bassPortal,
+];
 
 function rotate<T>(arr: T[], k: number): T[] {
   const n = arr.length;
@@ -67,7 +92,6 @@ export default function ShowOutput() {
     let latest: FeatPacket | null = null;
     let lastFeatAt: number | null = null;
     let blend = 1; // 0 = live stream, 1 = mock fallback
-    let staleSince = 0;
     let lastStats = 0;
     let currentProg: WebGLProgram | null = null;
     let toProg: WebGLProgram | null = null;
@@ -78,12 +102,20 @@ export default function ShowOutput() {
     let prevBeat = false;
     let lastNow = performance.now();
     const env = new Envelope();
+    // M7 event-art layer: decoded visuals by id + the director's pick.
+    const art = new Map<string, HTMLImageElement>();
+    let texId: string | null = null;
+    let texBase = DEFAULT_TEX_MIX;
+    let boundTex: string | null = null;
+    const texEnv = new Envelope();
+    // M8 segmentation layer: one shared easer (also used by the control preview).
+    const segEaser = new SegEaser();
 
     const applyScene = (
       visualId: string,
       transition: { type: string; durationMs: number },
     ) => {
-      const def = getShader(visualId) ?? listShaders().find((d) => d.tags?.includes(M3_TAG));
+      const def = getShader(visualId) ?? listShaders().find((d) => d.tags?.includes(M3_TAG) || d.tags?.includes(LIB_TAG));
       if (!def) return;
       if (transition.type === 'flash-cut') flash = Math.max(flash, 1);
       if (transition.type === 'cut' || transition.type === 'flash-cut') {
@@ -151,6 +183,46 @@ export default function ShowOutput() {
         show.bpm = m.bpm;
         return;
       }
+      if (m.t === 'visuals') {
+        art.clear();
+        boundTex = null;
+        for (const v of m.images) {
+          const img = new Image();
+          img.src = v.dataUrl;
+          const id = v.id;
+          img
+            .decode()
+            .then(() => art.set(id, img))
+            .catch(() => {
+              /* keep rendering the shader; a failed decode just never binds */
+            });
+        }
+        return;
+      }
+      if (m.t === 'texture') {
+        texId = m.id;
+        texBase = Math.min(1, Math.max(0, m.texMix));
+        return;
+      }
+      if (m.t === 'seg') {
+        const s = m.seg;
+        const perf = decodeGrid(s.perf, s.w, s.h);
+        const crowd = decodeGrid(s.crowd, s.w, s.h);
+        if (perf === null || crowd === null) return; // corrupt payload: hold the last mask
+        segEaser.setTarget(
+          {
+            perf,
+            crowd,
+            w: s.w,
+            h: s.h,
+            box: s.box,
+            motion: Math.min(1, Math.max(0, s.motion)),
+            strength: Math.min(1, Math.max(0, s.strength)),
+          },
+          performance.now(),
+        );
+        return;
+      }
       if (m.t === 'feat' && isFeatPacket(m)) {
         latest = m;
         lastFeatAt = performance.now();
@@ -166,12 +238,9 @@ export default function ShowOutput() {
       lastNow = now;
       const stale = isStreamStale(lastFeatAt, now);
       blend = Math.min(1, Math.max(0, blend + (stale ? dt * 2 : -dt * 4)));
-      if (!stale) staleSince = 0;
-      else if (staleSince === 0) staleSince = now;
-      if (tagRef.current) {
-        const showTag = stale && (!document.fullscreenElement || now - staleSince < 3000);
-        tagRef.current.style.display = showTag ? 'block' : 'none';
-      }
+      // M9-A: the projector never fakes it silently — Mock beats stays up
+      // whenever the live stream is gone, fullscreen included.
+      if (tagRef.current) tagRef.current.style.display = blend > 0.5 ? 'block' : 'none';
       const latched = latch.take();
       const live: AudioFeatures | null =
         latest === null
@@ -214,6 +283,24 @@ export default function ShowOutput() {
       // M6: uniforms ride a fast-attack/slow-release envelope of the raw
       // bands instead of the analyzer's heavily smoothed energy.
       f = { ...f, energy: env.step(rawEnergy(f), dt * 1000) };
+      // M7: the artwork blend rides its own M6 envelope off the beat —
+      // every kick pushes the texture up briefly, then it settles back.
+      const texPush = texEnv.step(f.beat ? 1 : 0, dt * 1000) * TEX_BEAT_PUSH;
+      const texMix = Math.min(1, Math.max(0, texBase + texPush));
+      if (texId !== boundTex) {
+        const img = texId === null ? null : (art.get(texId) ?? null);
+        if (texId === null || img !== null) {
+          renderer.setEventTexture(img);
+          boundTex = texId;
+        }
+      }
+      // M8: eased mask upload (R=performer G=crowd) + seg uniforms.
+      let seg: SegUniforms = NO_SEG;
+      const segFrame = segEaser.frame(dt * 1000, now);
+      if (segFrame !== null) {
+        renderer.setSegMask(segFrame.rgba, segFrame.w, segFrame.h);
+        seg = { mix: segFrame.mix, box: segFrame.box, motion: segFrame.motion };
+      }
       pulse += ((f.beat ? 1 : 0) - pulse) * (f.beat ? 0.55 : 0.07);
       if (f.beat && !prevBeat) {
         flash = Math.max(flash, (0.2 + 0.4 * f.bass) * Math.min(1.5, show.sensitivity));
@@ -238,7 +325,7 @@ export default function ShowOutput() {
         if (tick && currentProg && toProg) {
           renderer.renderCrossfade(
             now / 1000, f, pal, show.intensity + boost, show.speed, pulse,
-            show.extra, m.scale, currentProg, toProg, tick.mix,
+            show.extra, m.scale, currentProg, toProg, tick.mix, texMix, seg,
           );
           if (tick.done) {
             const def = getShader(show.visualId);
@@ -249,7 +336,7 @@ export default function ShowOutput() {
           }
         } else {
           renderer.renderVisual(
-            now / 1000, f, pal, show.intensity + boost, show.speed, pulse, show.extra, m.scale,
+            now / 1000, f, pal, show.intensity + boost, show.speed, pulse, show.extra, m.scale, texMix, seg,
           );
         }
       }
@@ -297,7 +384,7 @@ export default function ShowOutput() {
       <div ref={blackRef} style={{ ...styles.overlay, background: '#000', opacity: 0 }} />
       {status !== '' && <div style={styles.status}>{status}</div>}
       <div ref={tagRef} style={{ ...styles.tag, display: 'none' }}>
-        no audio stream
+        Mock beats
       </div>
       <button
         style={styles.fs}

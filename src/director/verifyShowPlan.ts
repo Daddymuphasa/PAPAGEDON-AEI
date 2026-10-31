@@ -23,6 +23,7 @@ export function verifyShowPlan(
   plan: unknown,
   defs: { id: string; params: VisualParam[] }[],
   lastVisualIds: string[],
+  knownTextureIds?: string[],
 ): ShowVerifyResult {
   const errors: string[] = [];
   if (typeof plan !== 'object' || plan === null) {
@@ -67,6 +68,20 @@ export function verifyShowPlan(
     errors.push(`sectionSeconds must be ${SECTION_MIN_S}-${SECTION_MAX_S}`);
   }
   if (typeof p.reason !== 'string' || !p.reason.trim()) errors.push('missing or empty: reason');
+  // M7: texture fields are optional — absent/null falls back to the
+  // energy-tag match. When present, both must validate.
+  if (p.texture !== undefined && p.texture !== null) {
+    if (typeof p.texture !== 'string' || p.texture === '') {
+      errors.push('texture must be an event image id or null');
+    } else if (knownTextureIds !== undefined && !knownTextureIds.includes(p.texture)) {
+      errors.push(`unknown texture: ${p.texture}`);
+    }
+  }
+  if (p.texMix !== undefined && p.texMix !== null) {
+    if (typeof p.texMix !== 'number' || !Number.isFinite(p.texMix) || p.texMix < 0 || p.texMix > 1) {
+      errors.push('texMix must be 0-1');
+    }
+  }
   const tail = lastVisualIds.slice(-MAX_REPEAT_VISUAL);
   if (tail.length === MAX_REPEAT_VISUAL && tail.every((id) => id === p.visualId)) {
     errors.push(`visual ${String(p.visualId)} would repeat more than twice in a row`);

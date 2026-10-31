@@ -74,6 +74,15 @@ export interface ShaderDefinition {
   uniforms: string[];
   tags?: string[]; // e.g. ['m3-visual'] (M3)
   params?: VisualParam[]; // declared tunable ranges (M3)
+  meta?: ShaderMeta; // library metadata for scene picking (M9-B)
+}
+
+// M9-B library metadata: the Director hands these to Muse Spark so scene
+// picks match the theme, the energy, and the mood.
+export interface ShaderMeta {
+  themeTags: string[]; // e.g. cosmic, neon, fire
+  energyRange: [number, number]; // sweet-spot energy, 0-1
+  moods: string[]; // e.g. euphoric, dark, driving
 }
 
 export interface DirectorInput {
@@ -104,6 +113,29 @@ export interface ShowPlan {
   energyArc: EnergyArc;
   sectionSeconds: number;
   reason: string;
+  texture?: string | null; // M7: event-image id, or null/absent for energy-tag match
+  texMix?: number; // M7: 0-1 texture blend, or absent for the default
+}
+
+// ---- M7 event visuals (Muse Image textures over the shader pipeline) ----
+
+export type EnergyTag = 'calm' | 'build' | 'peak' | 'drop';
+
+export type EventImageSource = 'live' | 'mock' | 'fallback';
+
+export interface EventImage {
+  id: string;
+  prompt: string;
+  energyTag: EnergyTag;
+  dataUrl: string;
+  source: EventImageSource;
+}
+
+// Lightweight texture descriptor the director picks from (no pixel bytes).
+export interface TextureMeta {
+  id: string;
+  energyTag: EnergyTag;
+  enabled: boolean;
 }
 
 export interface AudioSummary {
@@ -122,6 +154,7 @@ export interface VisualizerInfo {
   name: string;
   tags: string[];
   params: VisualParam[];
+  meta?: ShaderMeta;
 }
 
 // M5 track map: whole-file pre-analysis (Modal DSP, compute only). Times
@@ -181,6 +214,8 @@ export interface PlannerInput {
   summary: AudioSummary;
   upcomingSections?: UpcomingChange[];
   profile?: ListeningProfile;
+  textures?: TextureMeta[];
+  vision?: VisionPrompt;
   current: {
     visualId: string;
     params: [number, number, number];
@@ -200,4 +235,53 @@ export interface ModelUsage {
   latencyMs: number;
   mock: boolean;
   status: string;
+}
+
+// ---- M8 vision (SAM 3.1 performer/crowd segmentation) ----
+
+// Normalized box: 0-1 fractions of the frame, x0 < x1, y0 < y1.
+export interface NormBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  confidence?: number;
+}
+
+// One low-res binary grid (base64 of w*h bytes, 0/1), max 128px wide.
+export interface SegMaskData {
+  w: number;
+  h: number;
+  data: string;
+}
+
+export interface SegChannelData {
+  boxes: NormBox[];
+  mask: SegMaskData;
+  count: number;
+}
+
+// POST /api/vision/segment response body (plus the x-aei-usage header).
+export interface SegResultData {
+  performer: SegChannelData;
+  crowd: SegChannelData;
+}
+
+// Smoothed per-tick signals: the director's read of the stage.
+export interface VisionSignals {
+  performerBox: NormBox | null;
+  performerPresent: boolean;
+  crowdCoverage: number; // 0-1
+  crowdMotion: number; // 0-1
+  performerCount: number;
+  crowdCount: number;
+}
+
+// Compact vision read for the Muse Spark planning context (no boxes).
+export interface VisionPrompt {
+  present: boolean;
+  coverage: number;
+  motion: number;
+  performerCount: number;
+  crowdCount: number;
 }

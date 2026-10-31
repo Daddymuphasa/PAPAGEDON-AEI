@@ -4,6 +4,11 @@ import glsl from './circuit-veins.glsl';
 export const circuitVeins: ShaderDefinition = {
   id: 'circuit-veins',
   name: 'Circuit Veins',
+  meta: {
+    themeTags: ['tech', 'circuit', 'neon'],
+    energyRange: [0.3, 0.8],
+    moods: ['electric', 'restless', 'sharp'],
+  },
   fragmentGlsl: glsl,
   uniforms: [
     'u_time',
@@ -21,6 +26,12 @@ export const circuitVeins: ShaderDefinition = {
     'u_p3',
     'u_resolution',
     'u_palette',
+    'u_eventTex',
+    'u_texMix',
+    'u_segMask',
+    'u_perfBox',
+    'u_motion',
+    'u_segMix',
   ],
   tags: ['m3-visual'],
   params: [

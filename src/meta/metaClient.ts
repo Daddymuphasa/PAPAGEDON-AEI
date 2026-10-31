@@ -9,6 +9,7 @@ import { stashUsage } from './usage';
 
 export const META_API_BASE = 'https://api.meta.ai/v1';
 export const MUSE_SPARK_MODEL = 'muse-spark-1.3';
+export const MUSE_IMAGE_MODEL = 'muse-image-1.0';
 
 function assertServer() {
   if (typeof window !== 'undefined') throw new Error('metaClient is server-side only');

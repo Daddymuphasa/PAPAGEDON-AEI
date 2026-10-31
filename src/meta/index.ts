@@ -149,15 +149,6 @@ export async function judgeTheme(flyerDataUrl: string, theme: EventTheme): Promi
   );
 }
 
-// M5: theme-matched texture via Muse Image (shader input). Once per event.
-export async function generateTexture(prompt: string): Promise<{ url: string }> {
-  assertServer();
-  if (!isLive()) return { url: '' };
-  return cached('texture', prompt, 24 * 3600_000, () =>
-    metaCall<{ url: string }>('/muse-image/generate', { prompt }),
-  );
-}
-
 // M4: rolling 10-30s chunk -> lyrics/keywords via Muse Voice Transcribe.
 export async function transcribeChunk(chunkRef: string): Promise<{ lyrics: string; keywords: string[] }> {
   assertServer();
@@ -228,6 +219,8 @@ const SHOWPLAN_SCHEMA: Record<string, unknown> = {
     },
     sectionSeconds: { type: 'number' },
     reason: { type: 'string' },
+    texture: { type: ['string', 'null'] },
+    texMix: { type: 'number' },
   },
   required: [
     'visualId',
@@ -265,8 +258,15 @@ export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Pr
     ...(input.upcomingSections && input.upcomingSections.length > 0 ? { u: input.upcomingSections } : {}),
     // M6: only present once the room has been profiled.
     ...(input.profile ? { p: [input.profile.label, input.profile.bpm] } : {}),
+    // M7: only present once event images exist.
+    ...(input.textures && input.textures.length > 0
+      ? { x: input.textures.filter((t) => t.enabled).map((t) => t.id) }
+      : {}),
+    // M8: only present while the camera reads the stage.
+    ...(input.vision ? { s: [input.vision.present ? 1 : 0, r1(input.vision.coverage), r1(input.vision.motion)] } : {}),
   });
   return cached('showplan', cacheInput, 120_000, () => {
+    const enabledTextures = (input.textures ?? []).filter((t) => t.enabled);
     const developer =
       'You direct a live music visual show. Given the theme, the last-20s audio summary, ' +
       'current scene and the last 3 plans, pick the next scene as strict JSON: visualId (only from ' +
@@ -280,6 +280,18 @@ export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Pr
         : '') +
       (input.profile
         ? ' The show state carries a local listening profile — fit the plan to it (match the sound, not a generic look).'
+        : '') +
+      (enabledTextures.length > 0
+        ? ` Event image textures are available (${enabledTextures
+            .map((t) => `${t.id}: ${t.energyTag}`)
+            .join(', ')}): include "texture" (one of these ids, or null to auto-match the section energy) ` +
+          'and "texMix" 0-1 (how strongly the artwork blends over the shader; higher on drops, lower when the shader should lead).'
+        : '') +
+      (input.vision
+        ? ' The camera reads the stage (vision.present/coverage/motion in the show state): when a performer is present, frame them with performer-favoring scenes; let crowd motion lift intensity, and calm down when the crowd stills.'
+        : '') +
+      (input.visualizers.some((v) => v.meta !== undefined)
+        ? ' Each visualizer carries meta (themeTags, an energyRange sweet spot, moods): prefer scenes whose energyRange contains the current energy and whose tags/moods match the theme genre/mood/motifs; save out-of-range scenes for matching moments.'
         : '') +
       (feedback
         ? ` Fix exactly these errors in the previous plan and keep everything else: ${feedback.errors.join('; ')}.`

@@ -20,9 +20,29 @@ function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLSha
   return sh;
 }
 
+// M8 segmentation uniforms: combined mask strength (0 = tail no-op),
+// performer box xywh normalized (y=0 top), crowd motion 0-1.
+export interface SegUniforms {
+  mix: number;
+  box: [number, number, number, number];
+  motion: number;
+}
+
+export const NO_SEG: SegUniforms = { mix: 0, box: [0, 0, 0, 0], motion: 0 };
+
+// M9-B shader quality knob: 0 low, 1 med (default), 2 high. Compiled in
+// as AEI_QUALITY; shaders scale loop counts and raymarch steps on it.
+export type RenderQuality = 0 | 1 | 2;
+export const DEFAULT_QUALITY: RenderQuality = 1;
+
 export class Renderer {
   private gl: WebGLRenderingContext;
   private prog: WebGLProgram | null = null;
+  private eventTex: WebGLTexture | null = null;
+  private eventReady = false;
+  private segTex: WebGLTexture | null = null;
+  private segReady = false;
+  private quality: RenderQuality = DEFAULT_QUALITY;
 
   constructor(private canvas: HTMLCanvasElement) {
     const gl = canvas.getContext('webgl');
@@ -31,6 +51,12 @@ export class Renderer {
     const buf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+  }
+
+  // Takes effect on the next compile — callers re-acquire programs
+  // (tryCompile/setShader) after changing it.
+  setQuality(q: RenderQuality): void {
+    this.quality = q;
   }
 
   setShader(shader: ShaderDefinition): void {
@@ -43,7 +69,7 @@ export class Renderer {
     const prog = gl.createProgram();
     if (!prog) throw new Error('program alloc failed');
     gl.attachShader(prog, compile(gl, gl.VERTEX_SHADER, VERT));
-    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, shader.fragmentGlsl));
+    gl.attachShader(prog, compile(gl, gl.FRAGMENT_SHADER, `#define AEI_QUALITY ${this.quality}\n${shader.fragmentGlsl}`));
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
       throw new Error('shader link failed: ' + gl.getProgramInfoLog(prog));
@@ -57,6 +83,63 @@ export class Renderer {
       return { prog: this.buildProgram(shader) };
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
+  // M7: upload an event image as the shared u_eventTex layer. Null clears
+  // it (shaders fall back to mix 0). CLAMP + LINEAR keeps NPOT art legal.
+  setEventTexture(img: TexImageSource | null): void {
+    const { gl } = this;
+    if (img === null) {
+      this.eventReady = false;
+      return;
+    }
+    if (!this.eventTex) {
+      const tex = gl.createTexture();
+      if (!tex) return;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      this.eventTex = tex;
+    }
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+    gl.bindTexture(gl.TEXTURE_2D, this.eventTex);
+    try {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      this.eventReady = true;
+    } catch {
+      this.eventReady = false;
+    }
+  }
+
+  // M8: upload a segmentation grid as the shared u_segMask layer (R =
+  // performer, G = crowd, row 0 = image top). Null clears it (shaders
+  // fall back to mix 0). CLAMP + LINEAR keeps small grids legal.
+  setSegMask(data: Uint8Array | Uint8ClampedArray | null, w: number, h: number): void {
+    const { gl } = this;
+    if (data === null || w <= 0 || h <= 0 || data.length < w * h * 4) {
+      this.segReady = false;
+      return;
+    }
+    if (!this.segTex) {
+      const tex = gl.createTexture();
+      if (!tex) return;
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      this.segTex = tex;
+    }
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+    gl.bindTexture(gl.TEXTURE_2D, this.segTex);
+    try {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
+      this.segReady = true;
+    } catch {
+      this.segReady = false;
     }
   }
 
@@ -121,6 +204,8 @@ export class Renderer {
     extra: [number, number, number],
     w: number,
     h: number,
+    texMix: number,
+    seg: SegUniforms,
   ): void {
     const { gl } = this;
     const u = (n: string) => gl.getUniformLocation(prog, n);
@@ -137,6 +222,20 @@ export class Renderer {
     gl.uniform1f(u('u_p1'), extra[0]);
     gl.uniform1f(u('u_p2'), extra[1]);
     gl.uniform1f(u('u_p3'), extra[2]);
+    // M7 event-art layer on texture unit 2 (the FBO mix pass owns 0-1).
+    // Shaders without these uniforms get null locations — silent no-ops.
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.eventTex);
+    gl.uniform1i(u('u_eventTex'), 2);
+    gl.uniform1f(u('u_texMix'), this.eventReady && this.eventTex ? texMix : 0);
+    // M8 segmentation layer on texture unit 3 (FBO mix owns 0-1, event
+    // art owns 2). Mix 0 disables the tail, so the gallery is untouched.
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.segTex);
+    gl.uniform1i(u('u_segMask'), 3);
+    gl.uniform4f(u('u_perfBox'), seg.box[0], seg.box[1], seg.box[2], seg.box[3]);
+    gl.uniform1f(u('u_motion'), this.segReady && this.segTex ? seg.motion : 0);
+    gl.uniform1f(u('u_segMix'), this.segReady && this.segTex ? seg.mix : 0);
     gl.uniform2f(u('u_resolution'), w, h);
     gl.uniform3fv(
       u('u_palette'),
@@ -154,6 +253,8 @@ export class Renderer {
     pulse: number,
     extra: [number, number, number],
     scale: number,
+    texMix = 0,
+    seg: SegUniforms = NO_SEG,
   ): void {
     const { gl, canvas, prog } = this;
     if (!prog) return;
@@ -161,7 +262,7 @@ export class Renderer {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.useProgram(prog);
-    this.setVisualUniforms(prog, time, f, palette, intensity, speed, pulse, extra, canvas.width, canvas.height);
+    this.setVisualUniforms(prog, time, f, palette, intensity, speed, pulse, extra, canvas.width, canvas.height, texMix, seg);
     this.drawTri(prog);
   }
 
@@ -227,6 +328,8 @@ export class Renderer {
     fromProg: WebGLProgram,
     toProg: WebGLProgram,
     mix: number,
+    texMix = 0,
+    seg: SegUniforms = NO_SEG,
   ): void {
     const { gl, canvas } = this;
     this.sizeCanvas(scale);
@@ -237,7 +340,7 @@ export class Renderer {
       this.target(i, w, h);
       gl.viewport(0, 0, w, h);
       gl.useProgram(progs[i]);
-      this.setVisualUniforms(progs[i], time, f, palette, intensity, speed, pulse, extra, w, h);
+      this.setVisualUniforms(progs[i], time, f, palette, intensity, speed, pulse, extra, w, h, texMix, seg);
       this.drawTri(progs[i]);
     }
     const mixProg = this.ensureMixProg();

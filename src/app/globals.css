@@ -58,3 +58,18 @@ input[type='color'] {
     grid-template-columns: 1fr !important;
   }
 }
+
+@media (max-width: 1250px) {
+  .aei-grid-3col {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .aei-col-director {
+    grid-column: 1 / -1 !important;
+  }
+}
+
+@media (max-width: 900px) {
+  .aei-grid-3col {
+    grid-template-columns: 1fr !important;
+  }
+}

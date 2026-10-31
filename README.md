@@ -31,19 +31,21 @@ Then open [http://localhost:3000/meta](http://localhost:3000/meta) in a browser
 and press **Start visualizer**. MOCK mode needs no keys and makes no API calls.
 (The app is served under the `/meta` base path, matching papagedon.com/meta.)
 
-The M3 visualizer gallery lives at
-[http://localhost:3000/meta/gallery](http://localhost:3000/meta/gallery): five flagship
-visualizers with a control panel (palette, intensity, speed, audio
-sensitivity, mock BPM), a picker, live fps, and auto-cycle. No keys needed.
+The shader-library gallery lives at
+[http://localhost:3000/meta/gallery](http://localhost:3000/meta/gallery): five M3
+flagships plus the eight Batch-0 originals, each with live audio, a control
+panel (palette, intensity, speed, audio sensitivity, mock BPM), a picker with
+per-shader benchmark fps, a Low/Med/High quality switcher, live fps, and
+auto-cycle. No keys needed.
 
-M4 show mode runs on two screens from the same machine: open
-[http://localhost:3000/meta/show/output](http://localhost:3000/meta/show/output) on the
-projector (fullscreen visuals only, `F` for fullscreen) and
+Show mode runs from one window: open
 [http://localhost:3000/meta/show/control](http://localhost:3000/meta/show/control) on
-the laptop (log, scene + reason, countdown, meters, beat/profile readouts,
-room calibration, track map, credits, override panel, blackout). The windows
-sync over BroadcastChannel; the output keeps playing if control closes. No
-keys needed in MOCK.
+the laptop (`run-app.bat` opens just this page) — it carries a live preview,
+so no second window is needed. For the projector, press "Open output window"
+and fullscreen it (`F`); analysis keeps running even with control in the
+background. The windows sync over BroadcastChannel; if the live stream stops,
+the output shows a "Mock beats" badge instead of faking it silently. No keys
+needed in MOCK.
 
 ## Env vars
 
@@ -95,6 +97,58 @@ unset, the call fails, or analysis takes >30s, the route answers
 uses a built-in deterministic map, so pre-cues work with no Modal
 and no keys. Deploy notes live in `modal/README.md`.
 
+## Event visuals (M7)
+
+After flyer-to-theme, the app generates event-styled artwork — one
+abstract, loopable, projector-friendly texture per energy level
+(calm/build/peak/drop) — and blends it over the live shaders, so every
+event looks unique. Run `npm run check:meta` first: it reads the key
+from `.env.local` (never prints it) and reports OK/FAIL + HTTP status
+for Muse Spark chat, Muse Image generation, and SAM responses.
+
+In LIVE mode each texture is one `muse-image-1.0` call (1792x1024 webp,
+base64) with prompts built from the theme's palette, mood, motifs and
+event name. Every image is verified client-side (decodes, sane
+dimensions, 8x8 pixel sampling against the palette), retried once, then
+replaced by a procedural palette gradient — each step logged as `image`.
+Sets are cached per theme, so a reload never regenerates. The director
+picks the texture matching the section energy (drops cut to drop art),
+Muse Spark plans may name a `texture` id + `texMix` 0-1 (validated,
+fallback to the energy match), and every beat pushes the blend up
+briefly through the M6 envelope. The control page's Event visuals panel
+shows thumbnails, a Regenerate button, per-image toggles, and a texMix
+override slider. Each image call counts in the credit guard. Mock mode
+returns 4 procedural palette images with no network calls.
+
+## Camera vision (M8)
+
+The laptop camera watches the stage: SAM 3.1 separates the performer
+from the crowd, and the visuals frame the performer while reacting to
+crowd movement. The control page's Vision panel toggles the camera
+(getUserMedia video with a small preview), sets the tick cadence
+(1-5s, default 2s), and shows a mask overlay, counts, motion, and a
+mask-strength slider. Each tick sends one downscaled frame (max 640px
+JPEG, memory only, never saved) to `POST /api/vision/segment`, which
+runs two prompts — "performer" (fallback "person on stage") and
+"crowd" (fallback "people") — and returns boxes, low-res masks (max
+128px), and counts. The key never leaves the server; every SAM call
+counts in the credit guard, and over the cap the ticks stop, the last
+mask holds, and the block is logged.
+
+From the masks the client derives performerBox, performerPresent,
+crowdCoverage, and crowdMotion (last-two-mask difference), smooths
+them, and ships them to the projector over the show bus while feeding
+the director (a small energy-model nudge plus Muse Spark planning
+context). The output eases the old mask toward the new one every frame
+and uploads one texture (`u_segMask`, R = performer, G = crowd) with a
+`u_perfBox` box and motion uniform; all thirteen shaders share a tail that
+glows the performer, boosts crowd regions, and pulses with motion —
+a no-op without a mask, so the gallery is untouched. Failed or slow
+ticks (>4s) keep the last good mask, fading it after 10s; every tick
+logs as `sam` with counts, coverage, motion, and pass/fail. Mock mode
+serves a synthetic drifting performer blob plus a rippling crowd band
+with zero network.
+
 ## Cost rules
 
 Mock by default, cache everything, never call a model per frame, throttle and
@@ -104,11 +158,11 @@ batch. Real API calls happen in exactly these places, all server-side:
 | --- | --- | --- |
 | `extractTheme` | Muse Spark (vision) | once per event flyer (M2) |
 | `planShow` | Muse Spark | every 20s or on energy shifts, ≥8s apart (M4) |
-| `generateTexture` | Muse Image | once per event (M5) |
+| `generateEventImages` | Muse Image | once per theme, 4 energy levels (M7) |
 | `transcribeChunk` | Muse Voice Transcribe | rolling 10-30s chunks (later) |
 | `analyzeMusic` | Muse Spark | rolling 10-30s chunks (later) |
-| `segmentCrowd` | SAM 3.1 | one frame every ~3s, optional (M5) |
-| `planScene` | Muse Spark or Muse Spark Open (Baseten) | director tick, ~2s+, cached (M5) |
+| `segmentFrame` | SAM 3.1 | 2 calls per camera tick, 1-5s cadence (M8) |
+| `planScene` | Muse Spark or Muse Spark Open (Baseten) | director tick, ~2s+, cached (later) |
 
 Every response is cached by input hash (`src/meta/cache.ts`) and throttled
 (`src/meta/rateLimiter.ts`). The render loop never waits on a model call.
@@ -127,5 +181,8 @@ the call/token caps.
 | M4 | Director Live: two-speed AI director + two-window show | Muse Spark 1.3 + Muse Code |
 | M5 | Track pre-analysis (Modal compute) + director pre-cues | Modal (compute only) + Muse Code |
 | M6 | Smart listening: beat retune, envelopes, calibration, profiles | Muse Code (no model calls) |
-| M7 | Full Director Mode demo in LIVE mode | all wired |
-| M8 | Polish, deploy, 3-minute demo video | — |
+| M7 | Event visuals: Muse Image artwork as shader textures | Muse Image + Muse Code |
+| M8 | Performer/crowd segmentation | SAM 3.1 + Muse Code |
+| M9-A | Fix + polish: hidden-tab audio, single launch, control redesign, camera errors | Muse Code (no model calls) |
+| M9-B | Shader library Batch 0: 8 originals on the uniform contract + metadata | Muse Code (no model calls) |
+| M9-C | Deploy + 3-minute demo video | — |

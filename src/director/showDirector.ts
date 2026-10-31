@@ -15,6 +15,8 @@ import type {
   ShaderDefinition,
   ShowPlan,
   ShowTransition,
+  TextureMeta,
+  VisionPrompt,
   VisualizerInfo,
 } from '../types';
 import { EnergyBuffer, detectEvents, energyShifted } from './energy';
@@ -33,6 +35,7 @@ import {
   shouldCallPlanner,
 } from './showLogic';
 import { verifyShowPlan } from './verifyShowPlan';
+import { DEFAULT_TEX_MIX, pickTextureForPlan, pickTextureForTag } from './texturePick';
 import { upcoming, upcomingList } from './trackMap';
 import type { TrackMap, UpcomingChange } from '../types';
 import type { ShowBus, ShowSnapshot, ShowSource } from './showBus';
@@ -68,6 +71,8 @@ export interface DirectorView {
   plannerBusy: boolean;
   themeName: string;
   profile: ListeningProfile | null;
+  texture: { id: string | null; texMix: number };
+  vision: VisionPrompt | null;
 }
 
 export interface ShowDirectorOpts {
@@ -89,6 +94,14 @@ interface LiveState {
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
+}
+
+// M8: crowd motion nudges the energy model — a small extra input so a
+// jumping crowd reads hotter without ever overriding the audio.
+export const VISION_ENERGY_GAIN = 0.08;
+
+export function withVisionGain(energy: number, motion: number): number {
+  return clamp(energy + motion * VISION_ENERGY_GAIN, 0, 1);
 }
 
 function parseUsage(res: Response): ModelUsage {
@@ -130,6 +143,10 @@ export class ShowDirector {
   private trackMap: TrackMap | null = null;
   private cuedDropAt: number | null = null;
   private prepDropAt: number | null = null;
+  private textures: TextureMeta[] = [];
+  private texId: string | null = null;
+  private texMix = DEFAULT_TEX_MIX;
+  private vision: VisionPrompt | null = null;
   private profSamples: ProfileSample[] = [];
   private profBpms: number[] = [];
   private profWindowStart: number | null = null;
@@ -170,6 +187,65 @@ export class ShowDirector {
     this.trackMap = map;
     this.cuedDropAt = null;
     this.prepDropAt = null;
+  }
+
+  // M7: attach the event-image set (metas only — no pixel bytes). Picks
+  // the arc-matching texture immediately so the projector updates now.
+  setEventImages(metas: TextureMeta[]): void {
+    this.textures = [...metas];
+    const pick = pickTextureForPlan(this.plan?.texture, this.plan?.texMix, this.textures, this.arc);
+    this.applyTexture(pick.id, pick.texMix, 'images attached');
+  }
+
+  // M8: attach the latest smoothed vision read (or clear it). The page
+  // owns the camera tick; the director only stores the signals.
+  setVision(v: VisionPrompt | null): void {
+    this.vision = v === null ? null : { ...v };
+  }
+
+  // M7 manual texture override: validated id (or null to clear) + mix.
+  manualTexture(patch: { textureId?: string | null; texMix?: number }): void {
+    const now = performance.now();
+    this.manualUntil = now + (this.opts.manualHoldS ?? MANUAL_HOLD_S) * 1000;
+    let id = this.texId;
+    if (patch.textureId !== undefined) {
+      const ok =
+        patch.textureId === null ||
+        this.textures.some((t) => t.enabled && t.id === patch.textureId);
+      if (ok) id = patch.textureId;
+    }
+    const mix = patch.texMix === undefined ? this.texMix : clamp(patch.texMix, 0, 1);
+    this.texId = id;
+    this.texMix = mix;
+    this.opts.bus.post({ t: 'texture', id, texMix: mix });
+    if (now - this.lastManualLog > 1000) {
+      this.lastManualLog = now;
+      logDecision({
+        step: 'manual',
+        model: 'local',
+        input: 'texture override',
+        result: id === null ? 'texture cleared' : `texture ${id} at mix ${mix.toFixed(2)}`,
+        verify: null,
+        retries: 0,
+        latencyMs: null,
+      });
+    }
+  }
+
+  private applyTexture(id: string | null, mix: number, why: string): void {
+    if (id === this.texId && Math.abs(mix - this.texMix) < 0.01) return;
+    this.texId = id;
+    this.texMix = mix;
+    this.opts.bus.post({ t: 'texture', id, texMix: mix });
+    logDecision({
+      step: 'local',
+      model: 'local',
+      input: `texture pick (${why})`,
+      result: id === null ? 'no texture enabled' : `${id} at mix ${mix.toFixed(2)}`,
+      verify: null,
+      retries: 0,
+      latencyMs: null,
+    });
   }
 
   snapshot(): ShowSnapshot {
@@ -291,7 +367,7 @@ export class ShowDirector {
 
   frame(f: AudioFeatures, nowMs: number): void {
     const now = nowMs / 1000;
-    this.energy.push(now, f.energy);
+    this.energy.push(now, withVisionGain(f.energy, this.vision?.motion ?? 0));
     this.bassBuf.push(now, f.bass);
     this.midBuf.push(now, f.mid);
     this.highBuf.push(now, f.high);
@@ -340,6 +416,9 @@ export class ShowDirector {
     if (e === 'drop') {
       this.arc = 'peak';
       this.opts.bus.post({ t: 'hit', flash: Math.min(1, 0.5 + f.energy * 0.5), boost: 0.3 });
+      // M7: drops cut straight to the drop-tagged artwork.
+      const dropTex = pickTextureForTag('drop', this.textures);
+      if (dropTex !== null) this.applyTexture(dropTex, this.texMix, 'drop hit');
       if (this.pending) {
         const fast: ShowTransition =
           this.pending.transition.type === 'crossfade'
@@ -480,6 +559,9 @@ export class ShowDirector {
       paletteEmphasis: this.live.paletteEmphasis,
       sensitivity: this.sensitivity,
     });
+    // M7: texture follows the arc between plans (posts only on change).
+    const follow = pickTextureForPlan(this.plan?.texture, this.plan?.texMix, this.textures, this.arc);
+    this.applyTexture(follow.id, follow.texMix, `arc ${this.arc}`);
     logDecision({
       step: 'local',
       model: 'local',
@@ -515,6 +597,9 @@ export class ShowDirector {
       paletteEmphasis: plan.paletteEmphasis,
       transition: plan.transition,
     });
+    // M7: plan-named texture wins, else the section's energy tag.
+    const pick = pickTextureForPlan(plan.texture, plan.texMix, this.textures, this.arc);
+    this.applyTexture(pick.id, pick.texMix, `plan ${plan.visualId}`);
     logDecision({
       step: 'act',
       model: 'local',
@@ -532,6 +617,7 @@ export class ShowDirector {
       name: d.name,
       tags: d.tags ?? [],
       params: d.params ?? [],
+      ...(d.meta ? { meta: d.meta } : {}),
     }));
   }
 
@@ -591,6 +677,8 @@ export class ShowDirector {
       visualizers: this.defInfos(),
       upcomingSections: this.plannerSections(now),
       profile: this.profile ?? undefined,
+      textures: this.textures.length > 0 ? [...this.textures] : undefined,
+      vision: this.vision ?? undefined,
     };
     const history = [...this.lastPlans.map((p) => p.visualId), this.live.visualId].slice(-2);
     let feedback: { previous: ShowPlan; errors: string[] } | undefined;
@@ -607,7 +695,8 @@ export class ShowDirector {
         recordUsage(parseUsage(res));
         if (!res.ok) throw new Error(`planner failed: ${res.status}`);
         const candidate = (await res.json()) as ShowPlan;
-        const check = verifyShowPlan(candidate, this.defInfos(), history);
+        const knownTex = this.textures.filter((t) => t.enabled).map((t) => t.id);
+        const check = verifyShowPlan(candidate, this.defInfos(), history, knownTex);
         logDecision({
           step: 'verify',
           model,
@@ -695,6 +784,8 @@ export class ShowDirector {
       plannerBusy: this.plannerBusy,
       themeName: this.opts.getTheme()?.eventName ?? '—',
       profile: this.profile,
+      texture: { id: this.texId, texMix: this.texMix },
+      vision: this.vision,
     };
   }
 }

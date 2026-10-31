@@ -4,6 +4,11 @@ import glsl from './prism-burst.glsl';
 export const prismBurst: ShaderDefinition = {
   id: 'prism-burst',
   name: 'Prism Burst',
+  meta: {
+    themeTags: ['prism', 'burst', 'colorful'],
+    energyRange: [0.5, 1.0],
+    moods: ['explosive', 'joyful', 'bright'],
+  },
   fragmentGlsl: glsl,
   uniforms: [
     'u_time',
@@ -21,6 +26,11 @@ export const prismBurst: ShaderDefinition = {
     'u_p3',
     'u_resolution',
     'u_palette',
+    'u_eventTex',
+    'u_segMask',
+    'u_perfBox',
+    'u_motion',
+    'u_segMix',
   ],
   tags: ['m3-visual'],
   params: [

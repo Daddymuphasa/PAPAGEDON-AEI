@@ -95,4 +95,29 @@ describe('verifyShowPlan', () => {
     expect(r.errors).toContain('speed must be 0-2');
     expect(r.errors).toContain('paletteEmphasis must be an integer 0-3');
   });
+
+  test('accepts a plan without texture fields (energy-tag fallback)', () => {
+    expect(verifyShowPlan(validPlan(), DEFS, [], ['evt-peak-h']).ok).toBe(true);
+    expect(verifyShowPlan({ ...validPlan(), texture: null, texMix: null }, DEFS, [], []).ok).toBe(true);
+  });
+
+  test('accepts a valid texture pick', () => {
+    const r = verifyShowPlan({ ...validPlan(), texture: 'evt-drop-h', texMix: 0.8 }, DEFS, [], [
+      'evt-calm-h',
+      'evt-drop-h',
+    ]);
+    expect(r).toEqual({ ok: true, errors: [] });
+  });
+
+  test('rejects unknown texture ids and bad mixes', () => {
+    const r = verifyShowPlan({ ...validPlan(), texture: 'ghost', texMix: 0.5 }, DEFS, [], ['evt-peak-h']);
+    expect(r.ok).toBe(false);
+    expect(r.errors).toContain('unknown texture: ghost');
+    const r2 = verifyShowPlan({ ...validPlan(), texture: 'evt-peak-h', texMix: 9 }, DEFS, [], ['evt-peak-h']);
+    expect(r2.ok).toBe(false);
+    expect(r2.errors).toContain('texMix must be 0-1');
+    const r3 = verifyShowPlan({ ...validPlan(), texture: '', texMix: 0.5 }, DEFS, [], ['evt-peak-h']);
+    expect(r3.ok).toBe(false);
+    expect(r3.errors).toContain('texture must be an event image id or null');
+  });
 });

@@ -1,7 +1,29 @@
 // M4 show bus: control -> output sync over BroadcastChannel (same machine).
 // Only scene/param/palette/blackout changes cross the channel — never
 // per-frame audio. Node-safe (channel opens on open(), not import).
-import type { ShowTransition } from '../types';
+import type { EnergyTag, ShowTransition } from '../types';
+
+// M7: one event visual crossing to the projector (data URL included).
+export interface VisualPayload {
+  id: string;
+  energyTag: EnergyTag;
+  dataUrl: string;
+}
+
+// M8: one segmentation read crossing to the projector (b64 grids +
+// smoothed signals). No camera pixels — masks only.
+export interface SegPayload {
+  w: number;
+  h: number;
+  perf: string;
+  crowd: string;
+  box: [number, number, number, number] | null; // xywh, normalized
+  present: boolean;
+  coverage: number;
+  motion: number;
+  strength: number; // manual mask strength 0-1
+  at: number; // control clock ms, for the stale fade
+}
 
 export type ShowSource = 'mic' | 'file' | 'mock';
 
@@ -55,6 +77,9 @@ export type BusMessage =
   | { t: 'hit'; flash: number; boost: number }
   | { t: 'blackout'; on: boolean }
   | { t: 'audio'; source: ShowSource; bpm: number; t0: number }
+  | { t: 'visuals'; images: VisualPayload[] }
+  | { t: 'texture'; id: string | null; texMix: number }
+  | { t: 'seg'; seg: SegPayload }
   | { t: 'alive'; now: number }
   | FeatPacket
   | { t: 'outStats'; fps: number; msSincePacket: number };

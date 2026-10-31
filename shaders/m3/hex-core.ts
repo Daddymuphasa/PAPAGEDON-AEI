@@ -4,6 +4,11 @@ import glsl from './hex-core.glsl';
 export const hexCore: ShaderDefinition = {
   id: 'hex-core',
   name: 'Hex Core',
+  meta: {
+    themeTags: ['geometric', 'core', 'neon'],
+    energyRange: [0.3, 0.9],
+    moods: ['focused', 'driving', 'bright'],
+  },
   fragmentGlsl: glsl,
   uniforms: [
     'u_time',
@@ -21,6 +26,12 @@ export const hexCore: ShaderDefinition = {
     'u_p3',
     'u_resolution',
     'u_palette',
+    'u_eventTex',
+    'u_texMix',
+    'u_segMask',
+    'u_perfBox',
+    'u_motion',
+    'u_segMix',
   ],
   tags: ['m3-visual'],
   params: [

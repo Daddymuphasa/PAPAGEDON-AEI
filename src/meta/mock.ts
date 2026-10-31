@@ -9,6 +9,7 @@ import type {
   ScenePlan,
   ShowPlan,
 } from '../types';
+import { pickTextureForPlan } from '../director/texturePick';
 
 export const mockTheme: EventTheme = {
   eventName: 'Lagos Neon Nights',
@@ -82,6 +83,8 @@ export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
         : { type: 'crossfade' as const, durationMs: 600 };
   const genre = input.theme?.genre ?? 'the mix';
   const mood = input.theme?.mood ?? 'electric';
+  // M7: mock names a texture by energy tag when images exist, else null.
+  const tex = pickTextureForPlan(undefined, undefined, input.textures ?? [], arc);
   return {
     visualId,
     params,
@@ -92,5 +95,7 @@ export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
     energyArc: arc,
     sectionSeconds: [20, 30, 40][cursor % 3],
     reason: `Mock ${arc} scene on ${visualId} for ${mood} ${genre}`,
+    texture: tex.id,
+    texMix: tex.texMix,
   };
 }

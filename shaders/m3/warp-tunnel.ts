@@ -4,6 +4,11 @@ import glsl from './warp-tunnel.glsl';
 export const warpTunnel: ShaderDefinition = {
   id: 'warp-tunnel',
   name: 'Warp Tunnel',
+  meta: {
+    themeTags: ['tunnel', 'fast', 'cosmic'],
+    energyRange: [0.5, 1.0],
+    moods: ['rushing', 'vast', 'intense'],
+  },
   fragmentGlsl: glsl,
   uniforms: [
     'u_time',
@@ -21,6 +26,12 @@ export const warpTunnel: ShaderDefinition = {
     'u_p3',
     'u_resolution',
     'u_palette',
+    'u_eventTex',
+    'u_texMix',
+    'u_segMask',
+    'u_perfBox',
+    'u_motion',
+    'u_segMix',
   ],
   tags: ['m3-visual'],
   params: [

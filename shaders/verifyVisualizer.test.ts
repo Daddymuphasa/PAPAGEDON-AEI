@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest';
-import { M3_TAG, verifyVisualizer } from './verifyVisualizer';
+import { LIB_TAG, M3_TAG, verifyVisualizer } from './verifyVisualizer';
 
 const GLSL =
   'precision mediump float;\n' +
@@ -38,10 +38,14 @@ describe('verifyVisualizer', () => {
     expect(r.errors).toContain('missing or empty: name');
   });
 
-  test('rejects tags without the m3 marker', () => {
+  test('rejects tags without a library marker', () => {
     const r = verifyVisualizer({ ...validDef(), tags: ['other'] });
     expect(r.ok).toBe(false);
-    expect(r.errors).toContain(`tags must include '${M3_TAG}'`);
+    expect(r.errors).toContain(`tags must include '${M3_TAG}' or '${LIB_TAG}'`);
+  });
+
+  test('accepts the shader-library marker (M9-B)', () => {
+    expect(verifyVisualizer({ ...validDef(), tags: [LIB_TAG] })).toEqual({ ok: true, errors: [] });
   });
 
   test('rejects params outside their declared range', () => {

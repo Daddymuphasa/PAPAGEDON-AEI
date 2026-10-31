@@ -9,6 +9,7 @@ import { logDecision } from '../src/director/decisionLog';
 import { getShader, registerShader } from './registry';
 
 export const M3_TAG = 'm3-visual';
+export const LIB_TAG = 'shader-library';
 export const MIN_BENCHMARK_FPS = 30;
 export const BENCHMARK_FRAMES = 60;
 const REQUIRED_UNIFORMS = ['u_time', 'u_resolution', 'u_palette'];
@@ -27,8 +28,8 @@ export function verifyVisualizer(def: unknown): VisualVerifyResult {
   const d = def as Record<string, unknown>;
   if (typeof d.id !== 'string' || !d.id.trim()) errors.push('missing or empty: id');
   if (typeof d.name !== 'string' || !d.name.trim()) errors.push('missing or empty: name');
-  if (!Array.isArray(d.tags) || !d.tags.includes(M3_TAG)) {
-    errors.push(`tags must include '${M3_TAG}'`);
+  if (!Array.isArray(d.tags) || (!d.tags.includes(M3_TAG) && !d.tags.includes(LIB_TAG))) {
+    errors.push(`tags must include '${M3_TAG}' or '${LIB_TAG}'`);
   }
   if (!Array.isArray(d.params)) {
     errors.push('params must be an array');
@@ -65,9 +66,18 @@ function nextFrame(): Promise<number> {
 }
 
 // Browser-only: compiles, benchmarks over real frames, then registers.
+// The optional report callback receives the measured fps (null when the
+// shader never compiled) so pages can show per-shader numbers + failures.
+export interface BenchReport {
+  id: string;
+  fps: number | null;
+  error?: string;
+}
+
 export async function registerVisualizer(
   def: ShaderDefinition,
   renderer: Renderer,
+  report?: (r: BenchReport) => void,
 ): Promise<boolean> {
   const errors = verifyVisualizer(def).errors;
   if (typeof def.id === 'string' && getShader(def.id)) {
@@ -76,6 +86,7 @@ export async function registerVisualizer(
   const compiled = renderer.tryCompile(def);
   if ('error' in compiled) errors.push(`compile failed: ${compiled.error}`);
   if (errors.length > 0) {
+    report?.({ id: def.id, fps: null, error: errors[0] });
     logDecision({
       step: 'verify',
       model: 'local',
@@ -101,6 +112,7 @@ export async function registerVisualizer(
     renderer.renderVisual(t, mockFeatures(t), p.palette, p.intensity, p.speed, 0, [0.5, 0.5, 0.5], 1);
   }
   const fps = (BENCHMARK_FRAMES / Math.max(1, performance.now() - t0)) * 1000;
+  report?.({ id: def.id, fps });
   if (fps < MIN_BENCHMARK_FPS) {
     logDecision({
       step: 'verify',

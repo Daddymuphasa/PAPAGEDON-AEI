@@ -1,4 +1,4 @@
-# PAPAGEDON AEI — Architecture (M6)
+# PAPAGEDON AEI — Architecture (M8)
 
 ```
 INPUT 1 flyer ──> Muse Spark vision ──> EventTheme ──┐
@@ -51,7 +51,7 @@ Aegis Scales, Circuit Veins, Warp Tunnel, Prism Burst. All are new code
 written during the hackathon; nothing is copied from any other repo or
 product. Raw WebGL was kept over three.js: every look is procedural
 fullscreen-shader math, so one renderer interface and one registry serve
-all five with zero new dependencies.
+all thirteen with zero new dependencies.
 
 Render path: `Renderer.renderVisual()` takes palette/intensity from the
 shared `VisualParams` panel object plus an eased beat `pulse`; switches
@@ -200,3 +200,91 @@ plan request carries the profile (plus one fit-to-the-music sentence
 that only appears once a profile exists); cache keys gain the label
 only when present. Control shows the label, confidence, and bpm next
 to the beat flash and confidence readout.
+
+## M7 event visuals (Muse Image textures over the shaders)
+
+```
+theme ──> POST /api/visuals/generate ──> muse-image-1.0 × 4
+  (calm/build/peak/drop)                        │ 1792x1024 webp b64
+  per-theme cached,                         verify each (decode/dims/
+  cap-blocked when capped                   8x8 palette sample)
+                                                    │ retry once
+                                                    ▼
+  procedural palette gradient ◄── fallback ── verified EventImage set
+        │                                              │
+        └──────────> control panel + ──visuals msg──> output GL texture
+                     director pick ──texture msg──> u_eventTex / u_texMix
+```
+
+Prompts (`src/visuals/prompts.ts`) are built from the event name,
+genre, mood, palette, and motifs, asking for abstract loopable stage
+textures with no text, logos, or faces. The server route is the only
+caller of `muse-image-1.0` (key never reaches the browser), caches each
+theme+tag for 24h, and stashes one aggregated usage entry so the credit
+guard counts every image call. Mock mode returns four deterministic
+procedural palette SVGs with no network.
+
+Verification runs in the browser (`src/visuals/verifyImage.ts`):
+decode, 64–4096px dimensions, and an 8x8 downsample scored against the
+palette (≥45% of pixels near a palette colour). Failures retry once per
+tag, then fall back to a canvas palette gradient. Every step logs as
+`image`; over-cap generation is blocked and logged as `cap`.
+
+The renderer uploads the active visual to texture unit 2 (the FBO mix
+pass owns 0–1) and sets `u_eventTex`/`u_texMix` every frame; all thirteen
+library shaders end with an identical layer that displacement-samples the
+artwork and blends it over the shader colour (a no-op at mix 0, so the
+gallery and benchmarks are untouched). The output window decodes the
+`visuals` bus payload, binds the director's `texture` pick, and pushes
+the mix up on every beat through a dedicated M6 envelope.
+
+The director (`src/director/texturePick.ts`, pure) matches the section
+arc to an energy tag, honours valid plan `texture`/`texMix` fields
+(verified against the enabled ids, else energy-tag fallback), and cuts
+to drop art on drop hits. Control's Event visuals panel shows
+thumbnails with per-image toggles, a Regenerate button (force, still
+cap-guarded), and a texMix slider that overrides for the 8s manual
+hold. `npm run check:meta` (`scripts/check-meta.ts`) probes Spark chat,
+image generation, and SAM responses with OK/FAIL + status per call.
+
+## M8 camera vision (SAM 3.1 performer/crowd segmentation)
+
+```
+camera ──> tick 1-5s ──> POST /api/vision/segment ──> sam-3.1 x 2
+  640px JPEG,            (key server-side,      "performer"+"crowd"
+  memory only             usage per call)         │ output_text
+                                                  ▼
+  mock blob+band ◄── MOCK ── official @meta-sam/parser ── boxes+masks
+  (zero network)                                  │ fallback phrasing on empty
+                                                  ▼
+  verify (dims/boxes/counts) ── signals (box/present/coverage/motion)
+    │ fail: keep last good          │ smoothed per tick
+    ▼                               ▼
+  `sam`/`cap` log            director + ──seg msg──> output GL texture
+  (no images)                energy/planner    u_segMask / u_perfBox
+```
+
+`src/meta/sam.ts` is the only caller of `sam-3.1` (key never reaches
+the browser): data-URL frames with a `/v1/files` upload retry when
+data URLs are rejected, a 4s per-call timeout, and one fallback
+phrasing when a prompt comes back empty — transport errors fail the
+tick instead of retrying. The official parser reads `output_text`
+(empty means zero matches, valid); detections rasterize into 128px
+binary grids (mask pixels win, box-only fills its rect) that cross to
+the browser as base64. Mock mode serves a deterministic drifting blob
+and rippling crowd band.
+
+The browser tick (`src/vision/client.ts`) verifies each result,
+derives coverage plus last-two-mask motion, smooths every signal, and
+logs one `sam` entry per tick. The director stores the compact read
+(`VisionPrompt`), nudges its energy buffer by motion x 0.08, and hands
+Muse Spark the vision state with a framing sentence; the cache key
+gains the read only while the camera runs. The renderer uploads the
+eased RGBA grid to texture unit 3 (FBO mix owns 0-1, event art owns 2)
+and sets the seg uniforms every frame; all thirteen library shaders end with an
+identical tail (performer rim + glow, crowd boost, motion pulse) that
+is a no-op at mix 0, so the gallery and benchmarks are untouched. The
+output window decodes each `seg` payload, eases grids/box/motion per
+frame, and fades stale masks after 10s. `npm run check:meta` probes
+SAM with the exact `sam.ts` request shape, where HTTP 200 with empty
+output counts as OK.

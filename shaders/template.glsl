@@ -12,7 +12,9 @@
 //   uniform vec3  u_palette[4]; // EventTheme palette as linear RGB
 //
 // Rules: GLSL ES 1.00, precision mediump float, no textures in M1
-// (Muse Image textures arrive in M5).
+// (Muse Image textures arrived in M7 as u_eventTex + u_texMix;
+// segmentation masks arrived in M8 as u_segMask + u_perfBox + u_segMix (+ u_motion
+// for crowd motion, renamed from u_crowdMotion in M9-B).
 precision mediump float;
 
 uniform float u_time;

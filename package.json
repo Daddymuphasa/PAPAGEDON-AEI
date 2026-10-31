@@ -7,9 +7,12 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check:meta": "node --no-warnings scripts/check-meta.ts",
+    "check:secrets": "node --no-warnings scripts/check-secrets.ts"
   },
   "dependencies": {
+    "@meta-sam/parser": "^0.1.0",
     "next": "14.2.5",
     "openai": "7.45.1",
     "react": "18.3.1",

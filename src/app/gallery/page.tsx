@@ -8,7 +8,7 @@ import type { CSSProperties } from 'react';
 import type { ShaderDefinition } from '../../types';
 import { LocalAudioAnalyzer, mockFeatures } from '../../inputs/audio/localAnalyzer';
 import { Envelope, rawEnergy } from '../../inputs/audio/dsp';
-import { Renderer } from '../../engine/renderer';
+import { Renderer, type RenderQuality } from '../../engine/renderer';
 import { Crossfade } from '../../engine/transition';
 import { FpsMonitor } from '../../engine/fps';
 import {
@@ -17,17 +17,39 @@ import {
   customPalette,
   type VisualParams,
 } from '../../engine/visualParams';
-import { M3_TAG, registerVisualizer } from '../../../shaders/verifyVisualizer';
+import { LIB_TAG, M3_TAG, registerVisualizer, type BenchReport } from '../../../shaders/verifyVisualizer';
 import { hexCore } from '../../../shaders/m3/hex-core';
 import { aegisScales } from '../../../shaders/m3/aegis-scales';
 import { circuitVeins } from '../../../shaders/m3/circuit-veins';
 import { warpTunnel } from '../../../shaders/m3/warp-tunnel';
 import { prismBurst } from '../../../shaders/m3/prism-burst';
+import { nanoHex } from '../../../shaders/batch0/nano-hex';
+import { particleGalaxy } from '../../../shaders/batch0/particle-galaxy';
+import { liquidMirror } from '../../../shaders/batch0/liquid-mirror';
+import { emberField } from '../../../shaders/batch0/ember-field';
+import { finalAscension } from '../../../shaders/batch0/final-ascension';
+import { kineticColonnade } from '../../../shaders/batch0/kinetic-colonnade';
+import { moltenDunes } from '../../../shaders/batch0/molten-dunes';
+import { bassPortal } from '../../../shaders/batch0/bass-portal';
 import ControlPanel, { type SliderKey } from './ControlPanel';
 import { Button } from '../ui/controls';
 import { font, ink, overlay, signal, size, space, tabular } from '../ui/theme';
 
-const DEFS = [hexCore, aegisScales, circuitVeins, warpTunnel, prismBurst];
+const DEFS = [
+  hexCore,
+  aegisScales,
+  circuitVeins,
+  warpTunnel,
+  prismBurst,
+  nanoHex,
+  particleGalaxy,
+  liquidMirror,
+  emberField,
+  finalAscension,
+  kineticColonnade,
+  moltenDunes,
+  bassPortal,
+];
 const AUTO_CYCLE_MS = 12000;
 
 function prefersReduced(): boolean {
@@ -62,6 +84,11 @@ export default function Gallery() {
   const [fps, setFps] = useState(0);
   const [scale, setScale] = useState(1);
   const [auto, setAuto] = useState(() => !prefersReduced());
+  const [quality, setQuality] = useState<RenderQuality>(1);
+  const [bench, setBench] = useState<Record<string, BenchReport>>({});
+  const rendererRef = useRef<Renderer | null>(null);
+  const activeIdRef = useRef<string | null>(null);
+  activeIdRef.current = activeId;
 
   const paramsRef = useRef(params);
   paramsRef.current = params;
@@ -76,6 +103,7 @@ export default function Gallery() {
     let renderer: Renderer;
     try {
       renderer = new Renderer(canvas);
+      rendererRef.current = renderer;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'WebGL unavailable');
       return;
@@ -170,7 +198,8 @@ export default function Gallery() {
       for (let i = 0; i < DEFS.length; i++) {
         if (cancelled) return;
         setStatus(`Verifying ${DEFS[i].name} (${i + 1}/${DEFS.length})…`);
-        if (await registerVisualizer(DEFS[i], renderer)) passed.push(DEFS[i]);
+        const rep = (r: BenchReport) => setBench((b) => ({ ...b, [r.id]: r }));
+        if (await registerVisualizer(DEFS[i], renderer, rep)) passed.push(DEFS[i]);
       }
       if (cancelled) return;
       if (passed.length === 0) {
@@ -204,10 +233,20 @@ export default function Gallery() {
   }, []);
 
   const active = registered.find((d) => d.id === activeId) ?? null;
+  const failed = Object.values(bench).filter((r) => r.fps == null);
 
   const pick = (def: ShaderDefinition) => {
     setExtra(defToExtra(def));
     switchRef.current(def.id);
+  };
+
+  const onQuality = (q: RenderQuality) => {
+    setQuality(q);
+    const r = rendererRef.current;
+    if (!r) return;
+    r.setQuality(q);
+    const id = activeIdRef.current;
+    if (id) switchRef.current(id); // recompile current shader at the new quality
   };
 
   const onPreset = (i: number) => {
@@ -239,7 +278,7 @@ export default function Gallery() {
         {error && <span style={styles.error}>{error}</span>}
         <div style={styles.picker}>
           {registered
-            .filter((d) => d.tags?.includes(M3_TAG))
+            .filter((d) => d.tags?.includes(M3_TAG) || d.tags?.includes(LIB_TAG))
             .map((d) => (
               <Button
                 key={d.id}
@@ -247,9 +286,25 @@ export default function Gallery() {
                 onClick={() => pick(d)}
                 style={styles.pick}
               >
-                {d.name}
+                {bench[d.id]?.fps != null ? `${d.name} · ${Math.round(bench[d.id].fps!)}` : d.name}
               </Button>
             ))}
+        </div>
+        {failed.length > 0 && (
+          <span style={styles.error}>Failed: {failed.map((r) => r.id).join(', ')}</span>
+        )}
+        <div style={styles.row}>
+          <span style={styles.fps}>Quality</span>
+          {([0, 1, 2] as RenderQuality[]).map((q) => (
+            <Button
+              key={q}
+              kind={quality === q ? 'active' : 'default'}
+              onClick={() => onQuality(q)}
+              style={styles.pick}
+            >
+              {['Low', 'Med', 'High'][q]}
+            </Button>
+          ))}
         </div>
         <div style={styles.row}>
           <span style={styles.fps}>
