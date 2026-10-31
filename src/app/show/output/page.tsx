@@ -50,6 +50,16 @@ import { warehouseFog } from '../../../../shaders/batch2/warehouse-fog';
 import { hypnoSpiral } from '../../../../shaders/batch2/hypno-spiral';
 import { bassFracture } from '../../../../shaders/batch2/bass-fracture';
 import { euphoriaRays } from '../../../../shaders/batch2/euphoria-rays';
+import { heavenlyLight } from '../../../../shaders/batch3/heavenly-light';
+import { stainedGlassBloom } from '../../../../shaders/batch3/stained-glass-bloom';
+import { risingDoves } from '../../../../shaders/batch3/rising-doves';
+import { gloryClouds } from '../../../../shaders/batch3/glory-clouds';
+import { candleField } from '../../../../shaders/batch3/candle-field';
+import { rosePetalFall } from '../../../../shaders/batch3/rose-petal-fall';
+import { goldRingHalo } from '../../../../shaders/batch3/gold-ring-halo';
+import { silkRibbonDance } from '../../../../shaders/batch3/silk-ribbon-dance';
+import { crystalChandelier } from '../../../../shaders/batch3/crystal-chandelier';
+import { dawnBreaks } from '../../../../shaders/batch3/dawn-breaks';
 import { ShowBus, type BusMessage, type FeatPacket } from '../../../director/showBus';
 import { decodeGrid } from '../../../vision/signals';
 import { SegEaser } from '../../../vision/segEase';
@@ -88,6 +98,16 @@ const DEFS = [
   hypnoSpiral,
   bassFracture,
   euphoriaRays,
+  heavenlyLight,
+  stainedGlassBloom,
+  risingDoves,
+  gloryClouds,
+  candleField,
+  rosePetalFall,
+  goldRingHalo,
+  silkRibbonDance,
+  crystalChandelier,
+  dawnBreaks,
 ];
 
 function rotate<T>(arr: T[], k: number): T[] {
