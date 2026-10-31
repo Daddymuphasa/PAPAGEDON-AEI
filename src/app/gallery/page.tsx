@@ -41,6 +41,16 @@ import { goldDustHighlife } from '../../../shaders/batch1/gold-dust-highlife';
 import { shekereBeads } from '../../../shaders/batch1/shekere-beads';
 import { savannaSunsetPulse } from '../../../shaders/batch1/savanna-sunset-pulse';
 import { masqueradeSpirit } from '../../../shaders/batch1/masquerade-spirit';
+import { strobeLattice } from '../../../shaders/batch2/strobe-lattice';
+import { laserCathedral } from '../../../shaders/batch2/laser-cathedral';
+import { acidFold } from '../../../shaders/batch2/acid-fold';
+import { tranceHorizon } from '../../../shaders/batch2/trance-horizon';
+import { infiniteCorridor } from '../../../shaders/batch2/infinite-corridor';
+import { glitchGrid } from '../../../shaders/batch2/glitch-grid';
+import { warehouseFog } from '../../../shaders/batch2/warehouse-fog';
+import { hypnoSpiral } from '../../../shaders/batch2/hypno-spiral';
+import { bassFracture } from '../../../shaders/batch2/bass-fracture';
+import { euphoriaRays } from '../../../shaders/batch2/euphoria-rays';
 import ControlPanel, { type SliderKey } from './ControlPanel';
 import { Button } from '../ui/controls';
 import { font, ink, overlay, signal, size, space, tabular } from '../ui/theme';
@@ -69,6 +79,16 @@ const DEFS = [
   shekereBeads,
   savannaSunsetPulse,
   masqueradeSpirit,
+  strobeLattice,
+  laserCathedral,
+  acidFold,
+  tranceHorizon,
+  infiniteCorridor,
+  glitchGrid,
+  warehouseFog,
+  hypnoSpiral,
+  bassFracture,
+  euphoriaRays,
 ];
 const AUTO_CYCLE_MS = 12000;
 

@@ -40,6 +40,16 @@ import { goldDustHighlife } from '../../../../shaders/batch1/gold-dust-highlife'
 import { shekereBeads } from '../../../../shaders/batch1/shekere-beads';
 import { savannaSunsetPulse } from '../../../../shaders/batch1/savanna-sunset-pulse';
 import { masqueradeSpirit } from '../../../../shaders/batch1/masquerade-spirit';
+import { strobeLattice } from '../../../../shaders/batch2/strobe-lattice';
+import { laserCathedral } from '../../../../shaders/batch2/laser-cathedral';
+import { acidFold } from '../../../../shaders/batch2/acid-fold';
+import { tranceHorizon } from '../../../../shaders/batch2/trance-horizon';
+import { infiniteCorridor } from '../../../../shaders/batch2/infinite-corridor';
+import { glitchGrid } from '../../../../shaders/batch2/glitch-grid';
+import { warehouseFog } from '../../../../shaders/batch2/warehouse-fog';
+import { hypnoSpiral } from '../../../../shaders/batch2/hypno-spiral';
+import { bassFracture } from '../../../../shaders/batch2/bass-fracture';
+import { euphoriaRays } from '../../../../shaders/batch2/euphoria-rays';
 import { ShowBus, type BusMessage, type FeatPacket } from '../../../director/showBus';
 import { decodeGrid } from '../../../vision/signals';
 import { SegEaser } from '../../../vision/segEase';
@@ -68,6 +78,16 @@ const DEFS = [
   shekereBeads,
   savannaSunsetPulse,
   masqueradeSpirit,
+  strobeLattice,
+  laserCathedral,
+  acidFold,
+  tranceHorizon,
+  infiniteCorridor,
+  glitchGrid,
+  warehouseFog,
+  hypnoSpiral,
+  bassFracture,
+  euphoriaRays,
 ];
 
 function rotate<T>(arr: T[], k: number): T[] {
