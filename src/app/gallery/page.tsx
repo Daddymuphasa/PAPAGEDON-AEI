@@ -31,6 +31,16 @@ import { finalAscension } from '../../../shaders/batch0/final-ascension';
 import { kineticColonnade } from '../../../shaders/batch0/kinetic-colonnade';
 import { moltenDunes } from '../../../shaders/batch0/molten-dunes';
 import { bassPortal } from '../../../shaders/batch0/bass-portal';
+import { logDrumWaves } from '../../../shaders/batch1/log-drum-waves';
+import { uliLines } from '../../../shaders/batch1/uli-lines';
+import { adireIndigo } from '../../../shaders/batch1/adire-indigo';
+import { ankaraKaleido } from '../../../shaders/batch1/ankara-kaleido';
+import { lagosNightDrive } from '../../../shaders/batch1/lagos-night-drive';
+import { talkingDrumRings } from '../../../shaders/batch1/talking-drum-rings';
+import { goldDustHighlife } from '../../../shaders/batch1/gold-dust-highlife';
+import { shekereBeads } from '../../../shaders/batch1/shekere-beads';
+import { savannaSunsetPulse } from '../../../shaders/batch1/savanna-sunset-pulse';
+import { masqueradeSpirit } from '../../../shaders/batch1/masquerade-spirit';
 import ControlPanel, { type SliderKey } from './ControlPanel';
 import { Button } from '../ui/controls';
 import { font, ink, overlay, signal, size, space, tabular } from '../ui/theme';
@@ -49,6 +59,16 @@ const DEFS = [
   kineticColonnade,
   moltenDunes,
   bassPortal,
+  logDrumWaves,
+  uliLines,
+  adireIndigo,
+  ankaraKaleido,
+  lagosNightDrive,
+  talkingDrumRings,
+  goldDustHighlife,
+  shekereBeads,
+  savannaSunsetPulse,
+  masqueradeSpirit,
 ];
 const AUTO_CYCLE_MS = 12000;
 
