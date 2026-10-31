@@ -61,6 +61,16 @@ import { goldRingHalo } from '../../../shaders/batch3/gold-ring-halo';
 import { silkRibbonDance } from '../../../shaders/batch3/silk-ribbon-dance';
 import { crystalChandelier } from '../../../shaders/batch3/crystal-chandelier';
 import { dawnBreaks } from '../../../shaders/batch3/dawn-breaks';
+import { nebulaBreath } from '../../../shaders/batch4/nebula-breath';
+import { auroraCurtain } from '../../../shaders/batch4/aurora-curtain';
+import { blackHoleLens } from '../../../shaders/batch4/black-hole-lens';
+import { starfieldWarp } from '../../../shaders/batch4/starfield-warp';
+import { planetRings } from '../../../shaders/batch4/planet-rings';
+import { oceanSwell } from '../../../shaders/batch4/ocean-swell';
+import { rainforestCanopy } from '../../../shaders/batch4/rainforest-canopy';
+import { lightningStorm } from '../../../shaders/batch4/lightning-storm';
+import { lavaFlow } from '../../../shaders/batch4/lava-flow';
+import { firefliesNight } from '../../../shaders/batch4/fireflies-night';
 import ControlPanel, { type SliderKey } from './ControlPanel';
 import { Button } from '../ui/controls';
 import { font, ink, overlay, signal, size, space, tabular } from '../ui/theme';
@@ -109,6 +119,16 @@ const DEFS = [
   silkRibbonDance,
   crystalChandelier,
   dawnBreaks,
+  nebulaBreath,
+  auroraCurtain,
+  blackHoleLens,
+  starfieldWarp,
+  planetRings,
+  oceanSwell,
+  rainforestCanopy,
+  lightningStorm,
+  lavaFlow,
+  firefliesNight,
 ];
 const AUTO_CYCLE_MS = 12000;
 

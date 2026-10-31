@@ -51,7 +51,7 @@ Aegis Scales, Circuit Veins, Warp Tunnel, Prism Burst. All are new code
 written during the hackathon; nothing is copied from any other repo or
 product. Raw WebGL was kept over three.js: every look is procedural
 fullscreen-shader math, so one renderer interface and one registry serve
-all forty-three with zero new dependencies.
+all fifty-three with zero new dependencies.
 
 Render path: `Renderer.renderVisual()` takes palette/intensity from the
 shared `VisualParams` panel object plus an eased beat `pulse`; switches
@@ -231,7 +231,7 @@ tag, then fall back to a canvas palette gradient. Every step logs as
 `image`; over-cap generation is blocked and logged as `cap`.
 
 The renderer uploads the active visual to texture unit 2 (the FBO mix
-pass owns 0–1) and sets `u_eventTex`/`u_texMix` every frame; all forty-three
+pass owns 0–1) and sets `u_eventTex`/`u_texMix` every frame; all fifty-three
 library shaders end with an identical layer that displacement-samples the
 artwork and blends it over the shader colour (a no-op at mix 0, so the
 gallery and benchmarks are untouched). The output window decodes the
@@ -281,7 +281,7 @@ logs one `sam` entry per tick. The director stores the compact read
 Muse Spark the vision state with a framing sentence; the cache key
 gains the read only while the camera runs. The renderer uploads the
 eased RGBA grid to texture unit 3 (FBO mix owns 0-1, event art owns 2)
-and sets the seg uniforms every frame; all forty-three library shaders end with an
+and sets the seg uniforms every frame; all fifty-three library shaders end with an
 identical tail (performer rim + glow, crowd boost, motion pulse) that
 is a no-op at mix 0, so the gallery and benchmarks are untouched. The
 output window decodes each `seg` payload, eases grids/box/motion per
