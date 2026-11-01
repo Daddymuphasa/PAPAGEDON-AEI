@@ -1,10 +1,9 @@
 import { describe, expect, test } from 'vitest';
 import type { ShaderDefinition, VisionPrompt } from '../types';
-import type { ShowBus } from './showBus';
 import type { DirectorView } from './showDirector';
 import { ShowDirector, VISION_ENERGY_GAIN, withVisionGain } from './showDirector';
 
-const DEFS: ShaderDefinition[] = [{ id: 'hex-core', name: 'Hex', fragmentGlsl: '', uniforms: [] }];
+const DEFS: ShaderDefinition[] = [{ id: 'SignaturePack/01_aurora', name: 'Aurora', fragmentGlsl: '', uniforms: [] }];
 
 const READ: VisionPrompt = { present: true, coverage: 0.3, motion: 0.6, performerCount: 1, crowdCount: 8 };
 
@@ -22,8 +21,7 @@ describe('withVisionGain', () => {
 describe('director vision read', () => {
   test('setVision round-trips through the view, null clears', () => {
     const views: DirectorView[] = [];
-    const bus = { post: () => {} } as unknown as ShowBus;
-    const d = new ShowDirector({ bus, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
+    const d = new ShowDirector({ onScene: () => {}, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
     d.setVision(READ);
     // A view only emits on frame ticks (10 Hz); push one through.
     d.frame(

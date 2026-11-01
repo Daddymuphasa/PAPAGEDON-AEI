@@ -2,10 +2,9 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import type { AudioFeatures, ShaderDefinition } from '../types';
 import type { DirectorView } from './showDirector';
 import { ShowDirector } from './showDirector';
-import type { ShowBus } from './showBus';
 import { clearDecisions, getDecisions } from './decisionLog';
 
-const DEFS: ShaderDefinition[] = [{ id: 'hex-core', name: 'Hex', fragmentGlsl: '', uniforms: [] }];
+const DEFS: ShaderDefinition[] = [{ id: 'SignaturePack/01_aurora', name: 'Aurora', fragmentGlsl: '', uniforms: [] }];
 
 function roomFeatures(): AudioFeatures {
   return {
@@ -30,8 +29,7 @@ describe('listening profile cadence', () => {
 
   test('locks a profile after ~4s and logs label changes once', () => {
     const views: DirectorView[] = [];
-    const bus = { post: () => {} } as unknown as ShowBus;
-    const d = new ShowDirector({ bus, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
+    const d = new ShowDirector({ onScene: () => {}, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
     const t0 = 100000;
     d.setAudio('file', 126, t0, 'room.mp3');
     for (let ms = 0; ms <= 9000; ms += 150) {
@@ -48,8 +46,7 @@ describe('listening profile cadence', () => {
 
   test('no profile and no listen logs before the first window closes', () => {
     const views: DirectorView[] = [];
-    const bus = { post: () => {} } as unknown as ShowBus;
-    const d = new ShowDirector({ bus, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
+    const d = new ShowDirector({ onScene: () => {}, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
     const t0 = 200000;
     d.setAudio('file', 126, t0, 'room.mp3');
     for (let ms = 0; ms <= 2000; ms += 150) {

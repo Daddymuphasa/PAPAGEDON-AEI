@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Served under papagedon.com/meta (and /meta on localhost in dev).
+  // Served under the /meta base path (consistent locally and in production).
   basePath: '/meta',
   webpack: (config) => {
     // Import .glsl shader sources as strings (M6 shader pack).

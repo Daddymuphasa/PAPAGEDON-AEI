@@ -171,6 +171,55 @@ describe('mockShowPlan (Batch-5 rules)', () => {
     }
   });
 
+  test('on drops, a 3d-signature visual wins outright', () => {
+    const viz: VisualizerInfo[] = [
+      { id: 'x-plain', name: 'X Plain', tags: [], params: P3, meta: { themeTags: ['plain'], energyRange: [0.7, 1], moods: ['plain'] } },
+      { id: 'x-3d', name: 'X 3D', tags: [], params: P3, meta: { themeTags: ['3d-signature'], energyRange: [0.7, 1], moods: ['plain'] } },
+    ];
+    const in2 = input({
+      theme: null,
+      current: { visualId: 'zzz', params: [0.5, 0.5, 0.5], intensity: 0.7, speed: 1, paletteEmphasis: 0 },
+      lastPlans: [],
+      visualizers: viz,
+      summary: { ...input().summary, avgEnergy: 0.8, events: ['drop'] },
+    });
+    for (let cursor = 0; cursor < 4; cursor++) {
+      expect(mockShowPlan(in2, cursor).visualId).toBe('x-3d');
+    }
+  });
+
+  test('high energy without a drop still favours 3d-signature', () => {
+    const viz: VisualizerInfo[] = [
+      { id: 'x-plain', name: 'X Plain', tags: [], params: P3, meta: { themeTags: ['plain'], energyRange: [0.7, 1], moods: ['plain'] } },
+      { id: 'x-3d', name: 'X 3D', tags: [], params: P3, meta: { themeTags: ['3d-signature'], energyRange: [0.7, 1], moods: ['plain'] } },
+    ];
+    const in2 = input({
+      theme: null,
+      current: { visualId: 'zzz', params: [0.5, 0.5, 0.5], intensity: 0.7, speed: 1, paletteEmphasis: 0 },
+      lastPlans: [],
+      visualizers: viz,
+      summary: { ...input().summary, avgEnergy: 0.8, events: [] },
+    });
+    for (let cursor = 0; cursor < 4; cursor++) {
+      expect(mockShowPlan(in2, cursor).visualId).toBe('x-3d');
+    }
+  });
+
+  test('calm moments do not force 3d-signature', () => {
+    const viz: VisualizerInfo[] = [
+      { id: 'x-plain', name: 'X Plain', tags: [], params: P3, meta: { themeTags: ['plain'], energyRange: [0.4, 0.6], moods: ['plain'] } },
+      { id: 'x-3d', name: 'X 3D', tags: [], params: P3, meta: { themeTags: ['3d-signature'], energyRange: [0.7, 1], moods: ['plain'] } },
+    ];
+    const in2 = input({
+      theme: null,
+      current: { visualId: 'zzz', params: [0.5, 0.5, 0.5], intensity: 0.7, speed: 1, paletteEmphasis: 0 },
+      lastPlans: [],
+      visualizers: viz,
+      summary: { ...input().summary, avgEnergy: 0.5, events: [] },
+    });
+    expect(mockShowPlan(in2, 0).visualId).toBe('x-plain');
+  });
+
   test('planShow resolves a mock plan with no key set', async () => {
     const p = await planShow(input());
     expect(VIZ.map((v) => v.id)).toContain(p.visualId);

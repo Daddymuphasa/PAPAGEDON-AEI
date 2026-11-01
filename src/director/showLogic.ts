@@ -8,6 +8,7 @@ export const MAX_PLAN_RETRIES = 3;
 export const PHRASE_BEATS = 8;
 export const BREAKDOWN_PHRASE_BEATS = 16;
 export const MANUAL_HOLD_S = 8;
+export const MIN_SCENE_GAP_S = 8;
 
 // Fire on cadence or on a clear energy shift, never faster than the gap.
 export function shouldCallPlanner(

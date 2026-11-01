@@ -7,8 +7,8 @@ import {
 import { mockTheme } from '../meta/mock';
 
 const DEFS = [
-  { id: 'hex-core', name: 'Hex Core' },
-  { id: 'warp-tunnel', name: 'Warp Tunnel' },
+  { id: 'BadmanExperiencePack/03_inferno_lasers', name: 'Inferno Lasers' },
+  { id: 'PulsePack/01_kick_pump', name: 'Kick Pump' },
 ];
 
 describe('showLogic', () => {
@@ -38,19 +38,19 @@ describe('showLogic', () => {
   });
 
   test('maps an exact suggested id to the opening scene', () => {
-    const theme = { ...mockTheme, suggestedShaderIds: ['warp-tunnel'] };
-    expect(mapThemeToOpening(theme, DEFS)).toBe('warp-tunnel');
+    const theme = { ...mockTheme, suggestedShaderIds: ['PulsePack/01_kick_pump'] };
+    expect(mapThemeToOpening(theme, DEFS)).toBe('PulsePack/01_kick_pump');
   });
 
   test('ignores name keywords: unknown ids fall to an energy-matched scene', () => {
-    // mockTheme energy is 0.85; hex-core is the first catalog entry in range.
+    // mockTheme energy is 0.85; inferno-lasers is the first catalog entry in range.
     const theme = { ...mockTheme, suggestedShaderIds: ['mega-tunnel-viz'] };
-    expect(mapThemeToOpening(theme, DEFS)).toBe('hex-core');
+    expect(mapThemeToOpening(theme, DEFS)).toBe('BadmanExperiencePack/03_inferno_lasers');
   });
 
   test('falls back to the first visualizer without a theme', () => {
     const theme = { ...mockTheme, suggestedShaderIds: ['zzz-unknown'] };
-    expect(mapThemeToOpening(theme, DEFS)).toBe('hex-core');
-    expect(mapThemeToOpening(null, DEFS)).toBe('hex-core');
+    expect(mapThemeToOpening(theme, DEFS)).toBe('BadmanExperiencePack/03_inferno_lasers');
+    expect(mapThemeToOpening(null, DEFS)).toBe('BadmanExperiencePack/03_inferno_lasers');
   });
 });

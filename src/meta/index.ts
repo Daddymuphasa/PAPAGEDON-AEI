@@ -264,6 +264,7 @@ export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Pr
       'reason (one plain-English line). Never pick the current scene visualId or the last plan visualId; ' +
       'always use transition type crossfade with durationMs 1500; ' +
       'match the arc — drops hit hard, breakdowns breathe.' +
+      ' Visualizers tagged 3d-signature are the peak-moment weapons: strongly prefer them on drops and peak sections.' +
       (input.upcomingSections && input.upcomingSections.length > 0
         ? ' The show state lists upcoming mapped sections — anticipate them: ease in before a drop, hit on it.'
         : '') +

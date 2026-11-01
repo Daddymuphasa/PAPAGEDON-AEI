@@ -2,11 +2,10 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import type { AudioFeatures, ShaderDefinition } from '../types';
 import type { DirectorView } from './showDirector';
 import { ShowDirector } from './showDirector';
-import type { ShowBus } from './showBus';
 import { clearDecisions, getDecisions } from './decisionLog';
 import { mockTrackMap } from './trackMap';
 
-const DEFS: ShaderDefinition[] = [{ id: 'hex-core', name: 'Hex', fragmentGlsl: '', uniforms: [] }];
+const DEFS: ShaderDefinition[] = [{ id: 'SignaturePack/01_aurora', name: 'Aurora', fragmentGlsl: '', uniforms: [] }];
 
 function flatFeatures(): AudioFeatures {
   return {
@@ -27,8 +26,7 @@ function flatFeatures(): AudioFeatures {
 }
 
 function makeDirector(views: DirectorView[]): ShowDirector {
-  const bus = { post: () => {} } as unknown as ShowBus;
-  return new ShowDirector({ bus, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
+  return new ShowDirector({ onScene: () => {}, defs: DEFS, getTheme: () => null, onUpdate: (v) => views.push(v) });
 }
 
 // Drive the director from track t=20s to t=35s in 0.15s steps (every

@@ -1,4 +1,4 @@
-// Deploy base path: the app is served under /meta (papagedon.com/meta in
+// Deploy base path: the app is served under /meta (the meta subdomain in
 // production, http://localhost:3000/meta in dev). Mirrors `basePath` in
 // next.config.mjs. Plain <a> links and fetch() calls do not pick up basePath
 // automatically, so route them through withBasePath.

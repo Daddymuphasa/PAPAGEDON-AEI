@@ -1,0 +1,834 @@
+{
+  "generatedBy": "scripts/sync-papagedon-core.mjs",
+  "coreRepo": "https://github.com/Daddymuphasa/PAPAGEDON-CORE-",
+  "coreCommit": "4551dc4f244cc2cabbe6577471419c8d6e35eeed",
+  "themes": [
+    {
+      "id": "aurora",
+      "name": "Aurora",
+      "palette": {
+        "primary": "#2AF5D0",
+        "secondary": "#1E6091",
+        "accent": "#B5FFE1",
+        "background": "#02040A"
+      },
+      "glow": 0.4,
+      "bloom": 0.45,
+      "motion": 0.7,
+      "noise": 0.03,
+      "distortion": 1.5,
+      "transitionSpeed": 4,
+      "file": "themes/aurora.json"
+    },
+    {
+      "id": "badman",
+      "name": "Badman Experience",
+      "palette": {
+        "primary": "#A30D18",
+        "secondary": "#050505",
+        "accent": "#D6A53A",
+        "background": "#180202"
+      },
+      "glow": 0.45,
+      "bloom": 0.55,
+      "motion": 0.85,
+      "noise": 0.12,
+      "distortion": 1.1,
+      "transitionSpeed": 5,
+      "file": "themes/badman.json"
+    },
+    {
+      "id": "cyberpunk",
+      "name": "Cyberpunk",
+      "palette": {
+        "primary": "#00E5FF",
+        "secondary": "#7B2CBF",
+        "accent": "#FF2A6D",
+        "background": "#05010F"
+      },
+      "glow": 0.5,
+      "bloom": 0.55,
+      "motion": 1.1,
+      "noise": 0.12,
+      "distortion": 1.2,
+      "transitionSpeed": 8,
+      "file": "themes/cyberpunk.json"
+    },
+    {
+      "id": "dark-techno",
+      "name": "Dark Techno",
+      "palette": {
+        "primary": "#AEB6C2",
+        "secondary": "#1B2A4A",
+        "accent": "#E23B3B",
+        "background": "#040406"
+      },
+      "glow": 0.22,
+      "bloom": 0.22,
+      "motion": 0.9,
+      "noise": 0.15,
+      "distortion": 1,
+      "transitionSpeed": 5,
+      "file": "themes/dark-techno.json"
+    },
+    {
+      "id": "industrial",
+      "name": "Industrial",
+      "palette": {
+        "primary": "#FFB000",
+        "secondary": "#6E7B8B",
+        "accent": "#C0432B",
+        "background": "#0B0B0C"
+      },
+      "glow": 0.14,
+      "bloom": 0.18,
+      "motion": 1,
+      "noise": 0.28,
+      "distortion": 0.85,
+      "transitionSpeed": 7,
+      "file": "themes/industrial.json"
+    },
+    {
+      "id": "matrix",
+      "name": "Matrix",
+      "palette": {
+        "primary": "#00FF41",
+        "secondary": "#008F11",
+        "accent": "#CCFFCC",
+        "background": "#000500"
+      },
+      "glow": 0.35,
+      "bloom": 0.4,
+      "motion": 1.2,
+      "noise": 0.3,
+      "distortion": 0.8,
+      "transitionSpeed": 9,
+      "file": "themes/matrix.json"
+    },
+    {
+      "id": "nebula",
+      "name": "Nebula",
+      "palette": {
+        "primary": "#B24BF3",
+        "secondary": "#3B1E6D",
+        "accent": "#FFC857",
+        "background": "#0A0417"
+      },
+      "glow": 0.5,
+      "bloom": 0.6,
+      "motion": 0.6,
+      "noise": 0.05,
+      "distortion": 1.6,
+      "transitionSpeed": 4,
+      "file": "themes/nebula.json"
+    },
+    {
+      "id": "neon-rave",
+      "name": "Neon Rave",
+      "palette": {
+        "primary": "#39FF14",
+        "secondary": "#FF00A0",
+        "accent": "#FFF400",
+        "background": "#0A0014"
+      },
+      "glow": 0.6,
+      "bloom": 0.7,
+      "motion": 1.4,
+      "noise": 0.08,
+      "distortion": 1.3,
+      "transitionSpeed": 10,
+      "file": "themes/neon-rave.json"
+    },
+    {
+      "id": "trance",
+      "name": "TRANCE",
+      "glow": 0.38,
+      "bloom": 0.32,
+      "motion": 0.48,
+      "noise": 0.025,
+      "distortion": 0.62,
+      "transitionSpeed": 2.2,
+      "description": "Night R&B cocktail mood: moonlit violet, sapphire air, rose velvet and champagne highlights.",
+      "palette": {
+        "primary": "#456BA8",
+        "secondary": "#0A2450",
+        "accent": "#FFD38A",
+        "background": "#030614"
+      },
+      "rendering": {
+        "glow": 0.72,
+        "bloom": 0.52,
+        "motion": 0.62,
+        "noise": 0.045,
+        "distortion": 0.78,
+        "saturationBase": 0.68,
+        "saturationScale": 0.34,
+        "detail": 1.18
+      },
+      "music": {
+        "recommendedBpmRange": [
+          68,
+          96
+        ],
+        "bassResponse": 0.42,
+        "midResponse": 0.52,
+        "trebleResponse": 0.34,
+        "beatResponse": 0.28
+      },
+      "file": "shaders/TranceExperiencePack/trance-theme.json"
+    }
+  ],
+  "packs": [
+    {
+      "id": "BadmanExperiencePack",
+      "name": "Badman Experience Pack",
+      "recommendedTheme": "badman",
+      "shaders": [
+        {
+          "id": "BadmanExperiencePack/01_hellsmoke",
+          "name": "Hellsmoke",
+          "file": "shaders/BadmanExperiencePack/shaders/01_hellsmoke.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/01_hellsmoke.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "BadmanExperiencePack/02_red_chapel",
+          "name": "Red Chapel",
+          "file": "shaders/BadmanExperiencePack/shaders/02_red_chapel.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/02_red_chapel.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "BadmanExperiencePack/03_inferno_lasers",
+          "name": "Inferno Lasers",
+          "file": "shaders/BadmanExperiencePack/shaders/03_inferno_lasers.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/03_inferno_lasers.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "BadmanExperiencePack/04_obsidian_tunnel",
+          "name": "Obsidian Tunnel",
+          "file": "shaders/BadmanExperiencePack/shaders/04_obsidian_tunnel.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/04_obsidian_tunnel.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "BadmanExperiencePack/05_blood_pulse",
+          "name": "Blood Pulse",
+          "file": "shaders/BadmanExperiencePack/shaders/05_blood_pulse.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/05_blood_pulse.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "BadmanExperiencePack/06_ember_field",
+          "name": "Ember Field",
+          "file": "shaders/BadmanExperiencePack/shaders/06_ember_field.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/06_ember_field.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "BadmanExperiencePack/07_liquid_crimson",
+          "name": "Liquid Crimson",
+          "file": "shaders/BadmanExperiencePack/shaders/07_liquid_crimson.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/07_liquid_crimson.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "BadmanExperiencePack/08_black_sun",
+          "name": "Black Sun",
+          "file": "shaders/BadmanExperiencePack/shaders/08_black_sun.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/08_black_sun.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "BadmanExperiencePack/09_rave_grid",
+          "name": "Rave Grid",
+          "file": "shaders/BadmanExperiencePack/shaders/09_rave_grid.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/09_rave_grid.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "BadmanExperiencePack/10_void_temple",
+          "name": "Void Temple",
+          "file": "shaders/BadmanExperiencePack/shaders/10_void_temple.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/10_void_temple.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "BadmanExperiencePack/11_phantom_crowd",
+          "name": "Phantom Crowd",
+          "file": "shaders/BadmanExperiencePack/shaders/11_phantom_crowd.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/11_phantom_crowd.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "BadmanExperiencePack/12_final_ascension",
+          "name": "Final Ascension",
+          "file": "shaders/BadmanExperiencePack/shaders/12_final_ascension.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/12_final_ascension.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "BadmanExperiencePack/13_kinetic_colonnade",
+          "name": "Kinetic Colonnade",
+          "file": "shaders/BadmanExperiencePack/shaders/13_kinetic_colonnade.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/13_kinetic_colonnade.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "BadmanExperiencePack/14_prism_vault",
+          "name": "Prism Vault",
+          "file": "shaders/BadmanExperiencePack/shaders/14_prism_vault.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/14_prism_vault.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "BadmanExperiencePack/15_neon_skyline",
+          "name": "Neon Skyline",
+          "file": "shaders/BadmanExperiencePack/shaders/15_neon_skyline.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/15_neon_skyline.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "BadmanExperiencePack/16_laser_canopy",
+          "name": "Laser Canopy",
+          "file": "shaders/BadmanExperiencePack/shaders/16_laser_canopy.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/16_laser_canopy.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "BadmanExperiencePack/17_molten_dunes",
+          "name": "Molten Dunes",
+          "file": "shaders/BadmanExperiencePack/shaders/17_molten_dunes.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/17_molten_dunes.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "BadmanExperiencePack/18_bass_portals",
+          "name": "Bass Portals",
+          "file": "shaders/BadmanExperiencePack/shaders/18_bass_portals.frag",
+          "source": "engine/rendering/shaders/BadmanExperiencePack/shaders/18_bass_portals.frag",
+          "energyLevel": "peak"
+        }
+      ]
+    },
+    {
+      "id": "FestivalPack",
+      "name": "Festival Pack",
+      "recommendedTheme": null,
+      "shaders": [
+        {
+          "id": "FestivalPack/01_stage_lights",
+          "name": "Stage Lights",
+          "file": "shaders/FestivalPack/01_stage_lights.frag",
+          "source": "engine/rendering/shaders/FestivalPack/01_stage_lights.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "FestivalPack/02_crimson_haze",
+          "name": "Crimson Haze",
+          "file": "shaders/FestivalPack/02_crimson_haze.frag",
+          "source": "engine/rendering/shaders/FestivalPack/02_crimson_haze.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "FestivalPack/03_festival_eq",
+          "name": "Festival Eq",
+          "file": "shaders/FestivalPack/03_festival_eq.frag",
+          "source": "engine/rendering/shaders/FestivalPack/03_festival_eq.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "FestivalPack/04_jog_wheels",
+          "name": "Jog Wheels",
+          "file": "shaders/FestivalPack/04_jog_wheels.frag",
+          "source": "engine/rendering/shaders/FestivalPack/04_jog_wheels.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "FestivalPack/05_gold_ribbon",
+          "name": "Gold Ribbon",
+          "file": "shaders/FestivalPack/05_gold_ribbon.frag",
+          "source": "engine/rendering/shaders/FestivalPack/05_gold_ribbon.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "FestivalPack/06_badman_emblem",
+          "name": "Badman Emblem",
+          "file": "shaders/FestivalPack/06_badman_emblem.frag",
+          "source": "engine/rendering/shaders/FestivalPack/06_badman_emblem.frag",
+          "energyLevel": null
+        }
+      ]
+    },
+    {
+      "id": "HypnoticPack",
+      "name": "Hypnotic Pack",
+      "recommendedTheme": null,
+      "shaders": [
+        {
+          "id": "HypnoticPack/01_kaleido_tunnel",
+          "name": "Kaleido Tunnel",
+          "file": "shaders/HypnoticPack/01_kaleido_tunnel.frag",
+          "source": "engine/rendering/shaders/HypnoticPack/01_kaleido_tunnel.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "HypnoticPack/02_apollonian",
+          "name": "Apollonian",
+          "file": "shaders/HypnoticPack/02_apollonian.frag",
+          "source": "engine/rendering/shaders/HypnoticPack/02_apollonian.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "HypnoticPack/03_gyroid_lattice",
+          "name": "Gyroid Lattice",
+          "file": "shaders/HypnoticPack/03_gyroid_lattice.frag",
+          "source": "engine/rendering/shaders/HypnoticPack/03_gyroid_lattice.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "HypnoticPack/04_liquid_gold",
+          "name": "Liquid Gold",
+          "file": "shaders/HypnoticPack/04_liquid_gold.frag",
+          "source": "engine/rendering/shaders/HypnoticPack/04_liquid_gold.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "HypnoticPack/05_hypno_spiral",
+          "name": "Hypno Spiral",
+          "file": "shaders/HypnoticPack/05_hypno_spiral.frag",
+          "source": "engine/rendering/shaders/HypnoticPack/05_hypno_spiral.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "HypnoticPack/06_sacred_mandala",
+          "name": "Sacred Mandala",
+          "file": "shaders/HypnoticPack/06_sacred_mandala.frag",
+          "source": "engine/rendering/shaders/HypnoticPack/06_sacred_mandala.frag",
+          "energyLevel": null
+        }
+      ]
+    },
+    {
+      "id": "PulsePack",
+      "name": "Pulse Pack",
+      "recommendedTheme": null,
+      "shaders": [
+        {
+          "id": "PulsePack/01_kick_pump",
+          "name": "Kick Pump",
+          "file": "shaders/PulsePack/01_kick_pump.frag",
+          "source": "engine/rendering/shaders/PulsePack/01_kick_pump.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "PulsePack/02_shock_rings",
+          "name": "Shock Rings",
+          "file": "shaders/PulsePack/02_shock_rings.frag",
+          "source": "engine/rendering/shaders/PulsePack/02_shock_rings.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "PulsePack/03_bass_heave",
+          "name": "Bass Heave",
+          "file": "shaders/PulsePack/03_bass_heave.frag",
+          "source": "engine/rendering/shaders/PulsePack/03_bass_heave.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "PulsePack/04_tunnel_rush",
+          "name": "Tunnel Rush",
+          "file": "shaders/PulsePack/04_tunnel_rush.frag",
+          "source": "engine/rendering/shaders/PulsePack/04_tunnel_rush.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "PulsePack/05_prism_bloom",
+          "name": "Prism Bloom",
+          "file": "shaders/PulsePack/05_prism_bloom.frag",
+          "source": "engine/rendering/shaders/PulsePack/05_prism_bloom.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "PulsePack/06_deep_void",
+          "name": "Deep Void",
+          "file": "shaders/PulsePack/06_deep_void.frag",
+          "source": "engine/rendering/shaders/PulsePack/06_deep_void.frag",
+          "energyLevel": null
+        }
+      ]
+    },
+    {
+      "id": "SignaturePack",
+      "name": "Signature Pack",
+      "recommendedTheme": null,
+      "shaders": [
+        {
+          "id": "SignaturePack/01_aurora",
+          "name": "Aurora",
+          "file": "shaders/SignaturePack/01_aurora.frag",
+          "source": "engine/rendering/shaders/SignaturePack/01_aurora.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/02_nebula",
+          "name": "Nebula",
+          "file": "shaders/SignaturePack/02_nebula.frag",
+          "source": "engine/rendering/shaders/SignaturePack/02_nebula.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/03_matrix",
+          "name": "Matrix",
+          "file": "shaders/SignaturePack/03_matrix.frag",
+          "source": "engine/rendering/shaders/SignaturePack/03_matrix.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/04_liquid",
+          "name": "Liquid",
+          "file": "shaders/SignaturePack/04_liquid.frag",
+          "source": "engine/rendering/shaders/SignaturePack/04_liquid.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/05_tunnel",
+          "name": "Tunnel",
+          "file": "shaders/SignaturePack/05_tunnel.frag",
+          "source": "engine/rendering/shaders/SignaturePack/05_tunnel.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/06_pulse",
+          "name": "Pulse",
+          "file": "shaders/SignaturePack/06_pulse.frag",
+          "source": "engine/rendering/shaders/SignaturePack/06_pulse.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/07_vortex",
+          "name": "Vortex",
+          "file": "shaders/SignaturePack/07_vortex.frag",
+          "source": "engine/rendering/shaders/SignaturePack/07_vortex.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/08_laser_fan",
+          "name": "Laser Fan",
+          "file": "shaders/SignaturePack/08_laser_fan.frag",
+          "source": "engine/rendering/shaders/SignaturePack/08_laser_fan.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/09_mandala",
+          "name": "Mandala",
+          "file": "shaders/SignaturePack/09_mandala.frag",
+          "source": "engine/rendering/shaders/SignaturePack/09_mandala.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/10_neon_lattice",
+          "name": "Neon Lattice",
+          "file": "shaders/SignaturePack/10_neon_lattice.frag",
+          "source": "engine/rendering/shaders/SignaturePack/10_neon_lattice.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/11_bass_shockwave",
+          "name": "Bass Shockwave",
+          "file": "shaders/SignaturePack/11_bass_shockwave.frag",
+          "source": "engine/rendering/shaders/SignaturePack/11_bass_shockwave.frag",
+          "energyLevel": null
+        },
+        {
+          "id": "SignaturePack/12_spectrum_ring",
+          "name": "Spectrum Ring",
+          "file": "shaders/SignaturePack/12_spectrum_ring.frag",
+          "source": "engine/rendering/shaders/SignaturePack/12_spectrum_ring.frag",
+          "energyLevel": null
+        }
+      ]
+    },
+    {
+      "id": "TranceExperiencePack",
+      "name": "TRANCE Experience Pack",
+      "recommendedTheme": "trance",
+      "shaders": [
+        {
+          "id": "TranceExperiencePack/01_moonlit_velvet",
+          "name": "Moonlit Velvet",
+          "file": "shaders/TranceExperiencePack/shaders/01_moonlit_velvet.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/01_moonlit_velvet.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/02_champagne_stars",
+          "name": "Champagne Stars",
+          "file": "shaders/TranceExperiencePack/shaders/02_champagne_stars.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/02_champagne_stars.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/03_cobalt_silk",
+          "name": "Cobalt Silk",
+          "file": "shaders/TranceExperiencePack/shaders/03_cobalt_silk.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/03_cobalt_silk.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/04_garden_mist",
+          "name": "Garden Mist",
+          "file": "shaders/TranceExperiencePack/shaders/04_garden_mist.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/04_garden_mist.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/05_slow_dance_rings",
+          "name": "Slow Dance Rings",
+          "file": "shaders/TranceExperiencePack/shaders/05_slow_dance_rings.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/05_slow_dance_rings.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/06_crystal_goblet",
+          "name": "Crystal Goblet",
+          "file": "shaders/TranceExperiencePack/shaders/06_crystal_goblet.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/06_crystal_goblet.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/07_midnight_petals",
+          "name": "Midnight Petals",
+          "file": "shaders/TranceExperiencePack/shaders/07_midnight_petals.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/07_midnight_petals.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/08_satin_lagoon",
+          "name": "Satin Lagoon",
+          "file": "shaders/TranceExperiencePack/shaders/08_satin_lagoon.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/08_satin_lagoon.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/09_afterglow_balcony",
+          "name": "Afterglow Balcony",
+          "file": "shaders/TranceExperiencePack/shaders/09_afterglow_balcony.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/09_afterglow_balcony.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/10_velour_orbit",
+          "name": "Velour Orbit",
+          "file": "shaders/TranceExperiencePack/shaders/10_velour_orbit.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/10_velour_orbit.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/11_blue_hour_smoke",
+          "name": "Blue Hour Smoke",
+          "file": "shaders/TranceExperiencePack/shaders/11_blue_hour_smoke.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/11_blue_hour_smoke.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/12_rose_gold_moon",
+          "name": "Rose Gold Moon",
+          "file": "shaders/TranceExperiencePack/shaders/12_rose_gold_moon.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/12_rose_gold_moon.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/13_glass_rain",
+          "name": "Glass Rain",
+          "file": "shaders/TranceExperiencePack/shaders/13_glass_rain.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/13_glass_rain.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/14_dream_current",
+          "name": "Dream Current",
+          "file": "shaders/TranceExperiencePack/shaders/14_dream_current.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/14_dream_current.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/15_lounge_constellation",
+          "name": "Lounge Constellation",
+          "file": "shaders/TranceExperiencePack/shaders/15_lounge_constellation.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/15_lounge_constellation.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/16_violet_candlelight",
+          "name": "Violet Candlelight",
+          "file": "shaders/TranceExperiencePack/shaders/16_violet_candlelight.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/16_violet_candlelight.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/17_plum_horizon",
+          "name": "Plum Horizon",
+          "file": "shaders/TranceExperiencePack/shaders/17_plum_horizon.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/17_plum_horizon.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/18_sapphire_breath",
+          "name": "Sapphire Breath",
+          "file": "shaders/TranceExperiencePack/shaders/18_sapphire_breath.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/18_sapphire_breath.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/19_slow_bloom",
+          "name": "Slow Bloom",
+          "file": "shaders/TranceExperiencePack/shaders/19_slow_bloom.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/19_slow_bloom.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/20_trance_ascension",
+          "name": "TRANCE Ascension",
+          "file": "shaders/TranceExperiencePack/shaders/20_trance_ascension.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/20_trance_ascension.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "TranceExperiencePack/21_pearl_tides",
+          "name": "Pearl Tides",
+          "file": "shaders/TranceExperiencePack/shaders/21_pearl_tides.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/21_pearl_tides.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/22_lantern_drift",
+          "name": "Lantern Drift",
+          "file": "shaders/TranceExperiencePack/shaders/22_lantern_drift.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/22_lantern_drift.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/23_silk_aurora",
+          "name": "Silk Aurora",
+          "file": "shaders/TranceExperiencePack/shaders/23_silk_aurora.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/23_silk_aurora.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/24_glass_garden",
+          "name": "Glass Garden",
+          "file": "shaders/TranceExperiencePack/shaders/24_glass_garden.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/24_glass_garden.frag",
+          "energyLevel": "medium"
+        },
+        {
+          "id": "TranceExperiencePack/25_velvet_horizon",
+          "name": "Velvet Horizon",
+          "file": "shaders/TranceExperiencePack/shaders/25_velvet_horizon.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/25_velvet_horizon.frag",
+          "energyLevel": "low"
+        },
+        {
+          "id": "TranceExperiencePack/26_starlight_weave",
+          "name": "Starlight Weave",
+          "file": "shaders/TranceExperiencePack/shaders/26_starlight_weave.frag",
+          "source": "engine/rendering/shaders/TranceExperiencePack/shaders/26_starlight_weave.frag",
+          "energyLevel": "medium"
+        }
+      ]
+    },
+    {
+      "id": "Signature3DPack",
+      "name": "3D Signature Pack",
+      "recommendedTheme": null,
+      "shaders": [
+        {
+          "id": "Signature3DPack/01_nano_hex_genesis",
+          "name": "Nano Hex Genesis",
+          "file": "shaders/Signature3DPack/01_nano_hex_genesis.frag",
+          "source": "originals/Signature3DPack/01_nano_hex_genesis.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "Signature3DPack/02_liquid_mirror",
+          "name": "Liquid Mirror",
+          "file": "shaders/Signature3DPack/02_liquid_mirror.frag",
+          "source": "originals/Signature3DPack/02_liquid_mirror.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "Signature3DPack/03_particle_galaxy",
+          "name": "Particle Galaxy 3D",
+          "file": "shaders/Signature3DPack/03_particle_galaxy.frag",
+          "source": "originals/Signature3DPack/03_particle_galaxy.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "Signature3DPack/04_crystal_throne",
+          "name": "Crystal Throne",
+          "file": "shaders/Signature3DPack/04_crystal_throne.frag",
+          "source": "originals/Signature3DPack/04_crystal_throne.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "Signature3DPack/05_hex_reactor",
+          "name": "Hex Reactor Core",
+          "file": "shaders/Signature3DPack/05_hex_reactor.frag",
+          "source": "originals/Signature3DPack/05_hex_reactor.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "Signature3DPack/06_quartz_storm",
+          "name": "Quartz Storm",
+          "file": "shaders/Signature3DPack/06_quartz_storm.frag",
+          "source": "originals/Signature3DPack/06_quartz_storm.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "Signature3DPack/07_chrome_tide",
+          "name": "Chrome Tide",
+          "file": "shaders/Signature3DPack/07_chrome_tide.frag",
+          "source": "originals/Signature3DPack/07_chrome_tide.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "Signature3DPack/08_mercury_bloom",
+          "name": "Mercury Bloom",
+          "file": "shaders/Signature3DPack/08_mercury_bloom.frag",
+          "source": "originals/Signature3DPack/08_mercury_bloom.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "Signature3DPack/09_glass_tsunami",
+          "name": "Glass Tsunami",
+          "file": "shaders/Signature3DPack/09_glass_tsunami.frag",
+          "source": "originals/Signature3DPack/09_glass_tsunami.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "Signature3DPack/10_nebula_forge",
+          "name": "Nebula Forge",
+          "file": "shaders/Signature3DPack/10_nebula_forge.frag",
+          "source": "originals/Signature3DPack/10_nebula_forge.frag",
+          "energyLevel": "high"
+        },
+        {
+          "id": "Signature3DPack/11_orbital_swarm",
+          "name": "Orbital Swarm",
+          "file": "shaders/Signature3DPack/11_orbital_swarm.frag",
+          "source": "originals/Signature3DPack/11_orbital_swarm.frag",
+          "energyLevel": "peak"
+        },
+        {
+          "id": "Signature3DPack/12_supernova_choir",
+          "name": "Supernova Choir",
+          "file": "shaders/Signature3DPack/12_supernova_choir.frag",
+          "source": "originals/Signature3DPack/12_supernova_choir.frag",
+          "energyLevel": "peak"
+        }
+      ]
+    }
+  ]
+}

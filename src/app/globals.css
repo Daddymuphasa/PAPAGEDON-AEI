@@ -1,75 +1,132 @@
-/* Global UI baseline: only what inline styles can't express.
-   Tokens live in src/app/ui/theme.ts; this file covers normalization,
-   focus visibility, native-control theming, and the narrow-screen collapse. */
-:root {
-  color-scheme: dark;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-}
+/* ------------------------------------------------------------------ */
+/*  Base                                                               */
+/* ------------------------------------------------------------------ */
+@layer base {
+  :root {
+    --background: #0b110e;
+    --foreground: #e8e6dd;
+    --accent: #5aa98a;
+    --steel: #7fa1b2;
+  }
 
-body {
-  background: #0a0a0a;
-  color: #f2f2f2;
-}
+  * {
+    @apply border-line;
+  }
 
-button,
-input,
-select {
-  font: inherit;
-}
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
 
-button {
-  cursor: pointer;
-}
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    /* one faint, static wash so empty areas have depth — no particles */
+    background-image: radial-gradient(
+      55rem 38rem at 82% -8%,
+      rgba(90, 169, 138, 0.05),
+      transparent 70%
+    );
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
 
-button:focus-visible,
-input:focus-visible,
-select:focus-visible,
-a:focus-visible {
-  outline: 2px solid #00e5ff;
-  outline-offset: 2px;
-}
+  ::selection {
+    background: rgba(90, 169, 138, 0.26);
+    color: #e8e6dd;
+  }
 
-input[type='range'],
-input[type='checkbox'],
-input[type='color'] {
-  accent-color: #00e5ff;
-  cursor: pointer;
-}
-
-*::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-*::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 5px;
-}
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-@media (max-width: 900px) {
-  .aei-grid-2col {
-    grid-template-columns: 1fr !important;
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading tracking-tightest;
   }
 }
 
-@media (max-width: 1250px) {
-  .aei-grid-3col {
-    grid-template-columns: 1fr 1fr !important;
-  }
-  .aei-col-director {
-    grid-column: 1 / -1 !important;
+/* ------------------------------------------------------------------ */
+/*  Scrollbar                                                          */
+/* ------------------------------------------------------------------ */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: #0b110e;
+}
+::-webkit-scrollbar-thumb {
+  background: #24302a;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #33443b;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Utilities                                                          */
+/* ------------------------------------------------------------------ */
+@layer utilities {
+  /* Very fine grain for texture (kept subtle) */
+  .grain::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }
 
-@media (max-width: 900px) {
-  .aei-grid-3col {
-    grid-template-columns: 1fr !important;
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
+
+/* PAPAGEDON world stage */
+.pg-app { min-height:100svh; background:#020503; color:#f4f5ed; position:relative; overflow:hidden; }
+.pg-app canvas { position:fixed; inset:0; width:100%; height:100%; display:block; }
+.pg-app-nav { position:relative; z-index:4; display:flex; justify-content:space-between; align-items:center; padding:1.4rem clamp(1.2rem,4vw,3rem); font:500 10px var(--font-jetbrains-mono),monospace; letter-spacing:.18em; }
+.pg-app-nav a { color:#a3ffa9; }
+.pg-app-hud { position:relative; z-index:4; padding:0 clamp(1.2rem,4vw,3rem) 2rem; max-width:40rem; }
+.pg-app-hud h1 { font-size:clamp(2.6rem,7vw,5.2rem); line-height:.88; letter-spacing:-.07em; margin:.4rem 0 1rem; }
+.pg-app-hud p { color:rgba(244,245,237,.72); max-width:28rem; line-height:1.65; }
+.pg-app-actions { display:flex; flex-wrap:wrap; gap:.7rem; margin-top:1.5rem; }
+.pg-app-actions button,.pg-app-actions label { cursor:pointer; border:1px solid rgba(161,255,166,.45); background:transparent; color:#d9ffdc; padding:.85rem 1.1rem; font:500 10px var(--font-jetbrains-mono),monospace; letter-spacing:.12em; }
+.pg-app-actions button:hover,.pg-app-actions label:hover { background:#a1ffa6; color:#051208; }
+.pg-app-meta { position:fixed; z-index:4; left:clamp(1.2rem,4vw,3rem); bottom:1.4rem; font:500 10px var(--font-jetbrains-mono),monospace; letter-spacing:.14em; color:#8cff96; }
+.pg-app-gate { margin-top:1.4rem; font:500 10px var(--font-jetbrains-mono),monospace; letter-spacing:.12em; color:rgba(161,255,166,.7); }
+.music-mark { color:inherit; }
+.brand-logo { display:flex; align-items:center; height:clamp(3.25rem,5vw,4.35rem); }.brand-logo img { display:block; width:auto; height:100%; object-fit:contain; }.brand-logo-compact { height:3.1rem; }
+
+/* ── PAPAGEDON AEI show stage (engine in the browser) ─────────── */
+.pgx-root { position:fixed; inset:0; background:#000; color:#E8E6DD; overflow:hidden; }
+.pgx-root canvas.pgx-stage { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.pgx-camera-preview { position:absolute; right:1rem; bottom:1rem; z-index:5; width:clamp(120px, 18vw, 220px); aspect-ratio:16/9; object-fit:cover; border:1px solid rgba(182, 255, 205, .35); border-radius:10px; background:#050807; box-shadow:0 12px 35px rgba(0,0,0,.35); opacity:0; pointer-events:none; transform:scaleX(-1); transition:opacity .2s ease; }
+.pgx-camera-preview.is-on { opacity:.9; }
+.pgx-ui { position:absolute; inset:0; pointer-events:none; display:flex; flex-direction:column; }
+.pgx-ui > * { pointer-events:auto; }
+.pg-panel { background:rgba(11,17,14,.72); border:1px solid rgba(232,230,221,.09); border-radius:12px; padding:12px 14px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:0 12px 40px -18px rgba(0,0,0,.7); }
+.pg-btn { display:inline-flex; align-items:center; gap:.45rem; border:1px solid rgba(232,230,221,.16); background:rgba(255,255,255,.04); color:#E8E6DD; padding:.5rem .8rem; border-radius:8px; font:500 12px var(--font-inter),system-ui,sans-serif; cursor:pointer; transition:background .15s,border-color .15s; white-space:nowrap; }
+.pg-btn:hover:not(:disabled) { background:rgba(255,255,255,.09); }
+.pg-btn:disabled { opacity:.45; cursor:not-allowed; }
+.pg-btn-primary { border-color:rgba(90,169,138,.6); background:rgba(90,169,138,.18); color:#DDF2E8; }
+.pg-btn-primary:hover:not(:disabled) { background:rgba(90,169,138,.3); }
+.pg-btn-warn { border-color:rgba(214,165,58,.6); background:rgba(214,165,58,.16); }
+.pg-btn-on { border-color:rgba(90,169,138,.9); background:rgba(90,169,138,.28); }
+.pg-select { width:100%; background:rgba(0,0,0,.35); border:1px solid rgba(232,230,221,.14); color:#E8E6DD; border-radius:8px; padding:.4rem .5rem; font:500 12px var(--font-inter),system-ui,sans-serif; }
+.pg-label { font:500 10px var(--font-jetbrains-mono),monospace; letter-spacing:.18em; text-transform:uppercase; color:#8A928A; }
+.pg-meter { height:4px; border-radius:2px; background:rgba(255,255,255,.08); overflow:hidden; }
+.pg-meter > span { display:block; height:100%; background:#5AA98A; transition:width .08s linear; }
+.pgx-drop { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.55); border:2px dashed rgba(90,169,138,.7); font:600 18px var(--font-space-grotesk),sans-serif; z-index:20; }

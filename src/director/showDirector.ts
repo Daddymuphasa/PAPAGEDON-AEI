@@ -13,11 +13,12 @@ import type {
   PlannerInput,
   ProfileSample,
   ShaderDefinition,
+  ShaderMeta,
   ShowPlan,
-  VisualDefinition,
   ShowTransition,
   TextureMeta,
   VisionPrompt,
+  VisualParam,
   VisualizerInfo,
 } from '../types';
 import { EnergyBuffer, detectEvents, energyShifted } from './energy';
@@ -29,6 +30,7 @@ import { isCapped, recordUsage } from './credit';
 import {
   BREAKDOWN_PHRASE_BEATS,
   MANUAL_HOLD_S,
+  MIN_SCENE_GAP_S,
   MAX_PLAN_RETRIES,
   PHRASE_BEATS,
   PLANNER_CADENCE_S,
@@ -40,7 +42,6 @@ import { verifyShowPlan } from './verifyShowPlan';
 import { DEFAULT_TEX_MIX, pickTextureForPlan, pickTextureForTag } from './texturePick';
 import { upcoming, upcomingList } from './trackMap';
 import type { TrackMap, UpcomingChange } from '../types';
-import type { ShowBus, ShowSnapshot, ShowSource } from './showBus';
 
 export const TWEAK_INTERVAL_S = 2;
 // M5 map pre-cues: start holding intensity this far ahead of a mapped
@@ -77,9 +78,53 @@ export interface DirectorView {
   vision: VisionPrompt | null;
 }
 
+export type ShowSource = 'mic' | 'file' | 'mock';
+
+export interface ShowSnapshot {
+  visualId: string;
+  extra: [number, number, number];
+  intensity: number;
+  speed: number;
+  palette: string[];
+  paletteEmphasis: number;
+  sensitivity: number;
+  blackout: boolean;
+  source: ShowSource;
+  bpm: number;
+  t0: number;
+  fileName: string | null;
+}
+
+// Single-window scene events: what the director used to post over the
+// control -> output bus, now delivered straight to the page callback.
+export type DirectorEvent =
+  | {
+      t: 'scene';
+      visualId: string;
+      extra: [number, number, number];
+      intensity: number;
+      speed: number;
+      palette: string[];
+      paletteEmphasis: number;
+      transition: ShowTransition;
+    }
+  | { t: 'tweak'; intensity: number; speed: number; extra: [number, number, number]; paletteEmphasis: number; sensitivity: number }
+  | { t: 'texture'; id: string | null; texMix: number }
+  | { t: 'hit'; flash: number; boost: number }
+  | { t: 'blackout'; on: boolean };
+
+// Minimal visual shape the director needs (engine defs satisfy it).
+export interface DirectorVisual {
+  id: string;
+  name: string;
+  tags?: string[];
+  params?: VisualParam[];
+  meta?: ShaderMeta;
+}
+
 export interface ShowDirectorOpts {
-  bus: ShowBus;
-  defs: VisualDefinition[];
+  onScene: (e: DirectorEvent) => void;
+  defs: DirectorVisual[];
   getTheme: () => EventTheme | null;
   manualHoldS?: number;
   onUpdate: (v: DirectorView) => void;
@@ -135,6 +180,7 @@ export class ShowDirector {
   private lastTweak = 0;
   private lastPlannerCall: number | null = null;
   private lastCadence: number | null = null;
+  private lastSceneAt = -1e9;
   private plannerBusy = false;
   private capLogged = false;
   private manualUntil = 0;
@@ -163,7 +209,7 @@ export class ShowDirector {
   constructor(private opts: ShowDirectorOpts) {
     const def = opts.defs[0];
     this.live = {
-      visualId: def?.id ?? 'hex-core',
+      visualId: def?.id ?? 'SignaturePack/01_aurora',
       extra: [
         def?.params?.[0]?.def ?? 0.5,
         def?.params?.[1]?.def ?? 0.5,
@@ -221,7 +267,7 @@ export class ShowDirector {
     const mix = patch.texMix === undefined ? this.texMix : clamp(patch.texMix, 0, 1);
     this.texId = id;
     this.texMix = mix;
-    this.opts.bus.post({ t: 'texture', id, texMix: mix });
+    this.opts.onScene({ t: 'texture', id, texMix: mix });
     if (now - this.lastManualLog > 1000) {
       this.lastManualLog = now;
       logDecision({
@@ -240,7 +286,7 @@ export class ShowDirector {
     if (id === this.texId && Math.abs(mix - this.texMix) < 0.01) return;
     this.texId = id;
     this.texMix = mix;
-    this.opts.bus.post({ t: 'texture', id, texMix: mix });
+    this.opts.onScene({ t: 'texture', id, texMix: mix });
     logDecision({
       step: 'local',
       model: 'local',
@@ -289,7 +335,8 @@ export class ShowDirector {
     this.pending = null;
     this.beatsSince = 0;
     this.lastReason = `Opening scene for ${theme.eventName}`;
-    this.opts.bus.post({
+    this.lastSceneAt = performance.now() / 1000;
+    this.opts.onScene({
       t: 'scene',
       visualId: def.id,
       extra: [...this.live.extra] as [number, number, number],
@@ -319,7 +366,7 @@ export class ShowDirector {
     if (switched) {
       this.pending = null;
       this.beatsSince = 0;
-      this.opts.bus.post({
+      this.opts.onScene({
         t: 'scene',
         visualId: this.live.visualId,
         extra: [...this.live.extra] as [number, number, number],
@@ -330,7 +377,7 @@ export class ShowDirector {
         transition: { type: 'crossfade', durationMs: 1500 },
       });
     } else {
-      this.opts.bus.post({
+      this.opts.onScene({
         t: 'tweak',
         intensity: this.live.intensity,
         speed: this.live.speed,
@@ -359,7 +406,7 @@ export class ShowDirector {
 
   setBlackout(on: boolean): void {
     this.blackout = on;
-    this.opts.bus.post({ t: 'blackout', on });
+    this.opts.onScene({ t: 'blackout', on });
     logDecision({
       step: 'manual',
       model: 'local',
@@ -421,7 +468,7 @@ export class ShowDirector {
     this.recentEvents = [...this.recentEvents, e].slice(-6);
     if (e === 'drop') {
       this.arc = 'peak';
-      this.opts.bus.post({ t: 'hit', flash: Math.min(1, 0.5 + f.energy * 0.5), boost: 0.3 });
+      this.opts.onScene({ t: 'hit', flash: Math.min(1, 0.5 + f.energy * 0.5), boost: 0.3 });
       // M7: drops cut straight to the drop-tagged artwork.
       const dropTex = pickTextureForTag('drop', this.textures);
       if (dropTex !== null) this.applyTexture(dropTex, this.texMix, 'drop hit');
@@ -554,7 +601,7 @@ export class ShowDirector {
       extra: wantE,
       paletteEmphasis: target?.paletteEmphasis ?? this.live.paletteEmphasis,
     };
-    this.opts.bus.post({
+    this.opts.onScene({
       t: 'tweak',
       intensity: this.live.intensity,
       speed: this.live.speed,
@@ -577,6 +624,10 @@ export class ShowDirector {
   }
 
   private executePending(why: string): void {
+    // A scene needs room to breathe: drops cut through, anything else
+    // waits out the gap (the pending plan survives for the next window).
+    if (why !== 'drop hit' && performance.now() / 1000 - this.lastSceneAt < MIN_SCENE_GAP_S) return;
+    this.lastSceneAt = performance.now() / 1000;
     const plan = this.pending;
     if (!plan) return;
     this.pending = null;
@@ -590,7 +641,7 @@ export class ShowDirector {
       speed: plan.speed,
       paletteEmphasis: plan.paletteEmphasis,
     };
-    this.opts.bus.post({
+    this.opts.onScene({
       t: 'scene',
       visualId: plan.visualId,
       extra: [...plan.params],

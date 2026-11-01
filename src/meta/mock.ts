@@ -13,14 +13,14 @@ export const mockTheme: EventTheme = {
   tempoBpm: { min: 95, max: 125 },
   sceneSwitchSeconds: { min: 4, max: 12 },
   suggestedShaderIds: [
-    'lagos-night-drive',
-    'hex-core',
-    'bass-portal',
-    'particle-galaxy',
-    'ember-field',
-    'ankara-kaleido',
-    'strobe-lattice',
-    'neon-tunnel-3d',
+    'SignaturePack/01_aurora',
+    'BadmanExperiencePack/18_bass_portals',
+    'PulsePack/01_kick_pump',
+    'TranceExperiencePack/20_trance_ascension',
+    'FestivalPack/03_festival_eq',
+    'HypnoticPack/05_hypno_spiral',
+    'SignaturePack/11_bass_shockwave',
+    'BadmanExperiencePack/12_final_ascension',
   ],
 };
 
@@ -34,7 +34,7 @@ function clamp(v: number, lo: number, hi: number): number {
 // plan, prefers theme/energy metadata matches, rotates between equal
 // scores, reacts to summary events, sweeps params inside declared ranges.
 export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
-  const ids = input.visualizers.length > 0 ? input.visualizers : [{ id: 'hex-core', params: [] }];
+  const ids = input.visualizers.length > 0 ? input.visualizers : [{ id: 'SignaturePack/01_aurora', params: [] }];
   const banned = new Set(
     [input.current.visualId, ...input.lastPlans.map((p) => p.visualId)].filter(Boolean),
   );
@@ -54,6 +54,10 @@ export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
     if ((input.theme?.suggestedShaderIds ?? []).includes(v.id)) s += 3;
     const meta = (v as VisualizerInfo).meta;
     if (!meta) return s;
+    if (meta.themeTags.includes('3d-signature')) {
+      if (input.summary.events.includes('drop')) s += 4;
+      else if (energy >= 0.75) s += 2;
+    }
     if (energy >= meta.energyRange[0] && energy <= meta.energyRange[1]) s += 1;
     for (const tag of [...meta.themeTags, ...meta.moods]) {
       if (tag && words.includes(tag.toLowerCase())) s += 2;

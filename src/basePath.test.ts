@@ -11,7 +11,7 @@ describe('withBasePath', () => {
     expect(withBasePath('gallery')).toBe(`${BASE_PATH}/gallery`);
   });
 
-  test('base path matches the papagedon.com/meta mount', () => {
+  test('base path matches the /meta mount', () => {
     expect(BASE_PATH).toBe('/meta');
   });
 });

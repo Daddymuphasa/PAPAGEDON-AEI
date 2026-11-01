@@ -1,0 +1,12 @@
+{
+  "id": "rave-grid",
+  "index": 9,
+  "name": "Rave Grid",
+  "shader": "shaders/09_rave_grid.frag",
+  "description": "Full-wall staggered neon tiles with rolling bass grooves, treble accents and diagonal light sweeps for the Amapiano after party.",
+  "mood": ["minimal", "aggressive", "dark"],
+  "recommendedBpmRange": [108, 124],
+  "recommendedTheme": "badman",
+  "composition": 3,
+  "energyLevel": "high"
+}

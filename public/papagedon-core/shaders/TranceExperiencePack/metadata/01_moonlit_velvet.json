@@ -1,0 +1,23 @@
+{
+  "id": "moonlit-velvet",
+  "index": 1,
+  "name": "Moonlit Velvet",
+  "shader": "shaders/01_moonlit_velvet.frag",
+  "description": "Wide moonlit silk ribbons with independently drifting folds, champagne edges and gentle bass breathing across the wall.",
+  "mood": [
+    "night",
+    "dreamy",
+    "classy",
+    "rnb",
+    "cocktail",
+    "outdoor",
+    "atmospheric"
+  ],
+  "recommendedBpmRange": [
+    68,
+    96
+  ],
+  "recommendedTheme": "trance",
+  "composition": 0,
+  "energyLevel": "low"
+}

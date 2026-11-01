@@ -1,5 +1,21 @@
 // M4.2 stream helpers: packet guard, beat latch, staleness. Pure.
-import type { FeatPacket } from './showBus';
+export interface FeatFields {
+  seq: number;
+  ts: number;
+  bass: number;
+  subBass: number;
+  mid: number;
+  high: number;
+  energy: number;
+  flux: number;
+  beat: boolean;
+  beatConfidence: number;
+  bpm: number;
+  buildUp: boolean;
+  drop: boolean;
+}
+
+export type FeatPacket = { t: 'feat' } & FeatFields;
 
 export const FEAT_TIMEOUT_MS = 250;
 

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { EventTheme } from '../../types';
 import { MAX_RETRIES, verifyThemePlain } from './verifyTheme';
 
-const IDS = ['hex-core', 'rings-two'];
+const IDS = ['SignaturePack/01_aurora', 'SignaturePack/10_neon_lattice'];
 
 function validTheme(): EventTheme {
   return {
@@ -15,7 +15,7 @@ function validTheme(): EventTheme {
     typographyFeel: 'bold condensed glow',
     tempoBpm: { min: 95, max: 125 },
     sceneSwitchSeconds: { min: 4, max: 12 },
-    suggestedShaderIds: ['hex-core'],
+    suggestedShaderIds: ['SignaturePack/01_aurora'],
   };
 }
 
@@ -52,7 +52,7 @@ describe('verifyThemePlain', () => {
   });
 
   test('rejects unknown shader ids', () => {
-    const t = { ...validTheme(), suggestedShaderIds: ['hex-core', 'ghost-shader'] };
+    const t = { ...validTheme(), suggestedShaderIds: ['SignaturePack/01_aurora', 'ghost-shader'] };
     const r = verifyThemePlain(t, IDS);
     expect(r.ok).toBe(false);
     expect(r.errors).toContain('unknown shader id: ghost-shader');
@@ -97,9 +97,9 @@ describe('verifyThemePlain', () => {
   });
 
   test('validates against the catalog when no ids are passed', () => {
-    const t = { ...validTheme(), suggestedShaderIds: ['hex-core', 'neon-tunnel-3d'] };
+    const t = { ...validTheme(), suggestedShaderIds: ['SignaturePack/01_aurora', 'SignaturePack/10_neon_lattice'] };
     expect(verifyThemePlain(t).ok).toBe(true);
-    const bad = { ...validTheme(), suggestedShaderIds: ['hex-core', 'ghost-shader'] };
+    const bad = { ...validTheme(), suggestedShaderIds: ['SignaturePack/01_aurora', 'ghost-shader'] };
     const r = verifyThemePlain(bad);
     expect(r.ok).toBe(false);
     expect(r.errors).toContain('unknown shader id: ghost-shader');

@@ -2,6 +2,9 @@
 title PAPAGEDON AEI
 cd /d "C:\Users\DADDY MUPHASA\Documents\GitHub\PAPAGEDON-AEI"
 
+echo Freeing port 3000 (closing any stale app server)...
+powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { try { Stop-Process -Id $_.OwningProcess -Force } catch {} }"
+
 if not exist "node_modules\" (
   echo First run: installing dependencies, this takes a minute...
   call npm install
@@ -21,7 +24,7 @@ if errorlevel 2 goto show
 echo Starting live edit mode...
 echo Opening show control in your browser in a few seconds.
 echo If this window reports a different port, use that port in the address.
-start "opening browser" cmd /c "timeout /t 12 /nobreak >nul & start http://localhost:3000/meta/show/control"
+start "opening browser" cmd /c "timeout /t 12 /nobreak >nul & start http://localhost:3000/meta"
 call npm run dev
 goto end
 
@@ -31,7 +34,7 @@ call npm run build || (echo BUILD FAILED & pause & exit /b)
 echo Starting show mode...
 echo Opening show control in your browser in a few seconds.
 echo If this window reports a different port, use that port in the address.
-start "opening browser" cmd /c "timeout /t 12 /nobreak >nul & start http://localhost:3000/meta/show/control"
+start "opening browser" cmd /c "timeout /t 12 /nobreak >nul & start http://localhost:3000/meta"
 call npm start
 
 :end

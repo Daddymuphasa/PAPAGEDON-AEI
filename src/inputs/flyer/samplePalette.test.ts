@@ -2,8 +2,6 @@
 // theme enhancement against the catalog, and library registration.
 import { describe, expect, test } from 'vitest';
 import type { EventTheme } from '../../types';
-import { listShaders } from '../../../shaders/registry';
-import { registerLibrary } from '../../../shaders/library';
 import { CATALOG } from '../../../shaders/catalog';
 import { enhanceMockTheme, samplePaletteFromPixels, type CatalogLike, type FlyerSample } from './samplePalette';
 
@@ -23,7 +21,7 @@ const BASE: EventTheme = {
   typographyFeel: 'plain',
   tempoBpm: { min: 100, max: 120 },
   sceneSwitchSeconds: { min: 4, max: 12 },
-  suggestedShaderIds: ['hex-core'],
+  suggestedShaderIds: ['SignaturePack/01_aurora'],
 };
 
 function def(id: string, themeTags: string[] = [], energyRange: [number, number] = [0, 1], moods: string[] = []): CatalogLike {
@@ -107,18 +105,6 @@ describe('enhanceMockTheme', () => {
 
   test('falls back to base ids when the catalog is empty', () => {
     const t = enhanceMockTheme(BASE, sample(), []);
-    expect(t.suggestedShaderIds).toEqual(['hex-core']);
-  });
-});
-
-describe('registerLibrary', () => {
-  test('registers every def so verification sees real ids', () => {
-    registerLibrary([
-      { id: 'x-one', name: 'x-one', fragmentGlsl: '', uniforms: [] },
-      { id: 'x-two', name: 'x-two', fragmentGlsl: '', uniforms: [] },
-    ]);
-    const ids = listShaders().map((s) => s.id);
-    expect(ids).toContain('x-one');
-    expect(ids).toContain('x-two');
+    expect(t.suggestedShaderIds).toEqual(['SignaturePack/01_aurora']);
   });
 });

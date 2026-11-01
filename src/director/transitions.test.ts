@@ -4,7 +4,6 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { AudioFeatures, EventTheme, ShaderDefinition, ShowPlan } from '../types';
 import { clearDecisions, getDecisions } from './decisionLog';
-import type { ShowBus } from './showBus';
 import { ShowDirector, type DirectorView } from './showDirector';
 
 const P3 = [
@@ -40,8 +39,7 @@ function feat(energy: number): AudioFeatures {
 function setup() {
   const posts: { t: string; [k: string]: unknown }[] = [];
   const views: DirectorView[] = [];
-  const bus = { post: (m: never) => posts.push(m as unknown as { t: string }) } as unknown as ShowBus;
-  const d = new ShowDirector({ bus, defs: DEFS, getTheme: () => THEME, onUpdate: (v) => views.push(v) });
+  const d = new ShowDirector({ onScene: (m) => posts.push(m), defs: DEFS, getTheme: () => THEME, onUpdate: (v) => views.push(v) });
   return { d, posts, views };
 }
 
