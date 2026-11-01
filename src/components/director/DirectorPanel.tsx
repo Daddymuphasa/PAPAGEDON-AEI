@@ -224,7 +224,7 @@ export default function DirectorPanel({ control }: { control: DirectorControl })
       <section className="pg-panel">
         <div className="pg-label mb-2">Shader check</div>
         <button className="pg-btn w-full justify-center" disabled={control.diag?.running} onClick={control.onCompileAll}>
-          {control.diag?.running ? `Compiling ${control.diag.checked}/${control.diag.total}…` : {`Compile all ${CATALOG.length} shaders`}}
+          {control.diag?.running ? `Compiling ${control.diag.checked}/${control.diag.total}…` : `Compile all ${CATALOG.length} shaders`}
         </button>
         {control.diag && !control.diag.running && control.diag.failures.length === 0 && control.diag.checked > 0 && (
           <p className="mt-1 text-[11px] text-accent">

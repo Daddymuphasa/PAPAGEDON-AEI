@@ -26,3 +26,10 @@ for this repo. Nano Hex Genesis, Liquid Mirror and Particle Galaxy 3D were
 rebuilt from descriptions after a full search of PAPAGEDON-META found no
 originals; the other 9 are new. Their manifest `source` paths start with
 `originals/`, and the catalog sync test covers them like converted shaders.
+
+## Rewritten Aurora
+
+`shaders/SignaturePack/01_aurora.frag` is the second exception: the
+converted body was replaced with a rewritten original (aurora storm: triple
+curtains, pillars, meteor, mountains). Its manifest `source` also starts
+with `originals/`. Everything else in the six packs stays verbatim.

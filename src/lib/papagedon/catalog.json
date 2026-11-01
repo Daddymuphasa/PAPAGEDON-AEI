@@ -468,7 +468,7 @@
           "id": "SignaturePack/01_aurora",
           "name": "Aurora",
           "file": "shaders/SignaturePack/01_aurora.frag",
-          "source": "engine/rendering/shaders/SignaturePack/01_aurora.frag",
+          "source": "originals/SignaturePack/01_aurora.frag",
           "energyLevel": null
         },
         {

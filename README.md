@@ -6,13 +6,13 @@ The PAPAGEDON visual engine, the `/app` experience UI, and the six core
 shader packs pre-date this hackathon entry — earlier work by Daddy MUPHASA.
 The new hackathon work is the Meta integration: Muse Spark visual director
 plus Spark-authored visualizers, Muse Image event artwork, and SAM 3.1 crowd
-vision — plus the director bridge, 12 original 3D signature shaders, verification, launchers, and docs in
+vision — plus the director bridge, 13 original shaders, verification, launchers, and docs in
 this repo.
 
 ## What it is
 
-- **Engine:** 86 shaders (74 converted: Badman 18, Festival 6, Hypnotic 6,
-  Pulse 6, Signature 12, Trance 26; plus 12 original 3D signature) and 9 themes, running WebGL2 in the
+- **Engine:** 86 shaders (73 converted + 13 originals: Badman 18, Festival 6, Hypnotic 6,
+  Pulse 6, Signature 12, Trance 26; originals are 12 3D signature + rewritten Aurora) and 9 themes, running WebGL2 in the
   browser. File, mic, or loopback audio drives every frame. Scene changes
   crossfade across a dual canvas; drops flash; blackout is one event away.
 - **Director:** Muse Spark picks the visual from the full catalog by energy,
