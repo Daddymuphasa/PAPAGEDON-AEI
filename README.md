@@ -33,7 +33,7 @@ and press **Start visualizer**. MOCK mode needs no keys and makes no API calls.
 
 The shader-library gallery lives at
 [http://localhost:3000/meta/gallery](http://localhost:3000/meta/gallery): five M3
-flagships plus the eight Batch-0 and ten each of Batch-1, Batch-2, Batch-3 and Batch-4 originals, each with live audio, a control
+flagships plus the eight Batch-0 and ten each of Batch-1 through Batch-5 originals, each with live audio, a control
 panel (palette, intensity, speed, audio sensitivity, mock BPM), a picker with
 per-shader benchmark fps, a Low/Med/High quality switcher, live fps, and
 auto-cycle. No keys needed.
@@ -141,7 +141,7 @@ them, and ships them to the projector over the show bus while feeding
 the director (a small energy-model nudge plus Muse Spark planning
 context). The output eases the old mask toward the new one every frame
 and uploads one texture (`u_segMask`, R = performer, G = crowd) with a
-`u_perfBox` box and motion uniform; all fifty-three shaders share a tail that
+`u_perfBox` box and motion uniform; all sixty-three shaders share a tail that
 glows the performer, boosts crowd regions, and pulses with motion —
 a no-op without a mask, so the gallery is untouched. Failed or slow
 ticks (>4s) keep the last good mask, fading it after 10s; every tick
@@ -189,4 +189,5 @@ the call/token caps.
 | M9-B | Shader library Batch 2: 10 club originals on the uniform contract | Muse Code (no model calls) |
 | M9-B | Shader library Batch 3: 10 wedding/gospel originals on the uniform contract | Muse Code (no model calls) |
 | M9-B | Shader library Batch 4: 10 cosmic/nature originals on the uniform contract | Muse Code (no model calls) |
+| M9-B | Shader library Batch 5: 10 retro/hip-hop/festival originals + Director fade/repeat update | Muse Code (no model calls) |
 | M9-C | Deploy + 3-minute demo video | — |

@@ -8,14 +8,20 @@ import type { CSSProperties } from 'react';
 import { font, ink, size } from '../../ui/theme';
 import type { AudioFeatures } from '../../../types';
 import { mockFeatures } from '../../../inputs/audio/localAnalyzer';
+import { applyPaletteVariation, easePaletteToward } from '../../../theme/roles';
 import { Envelope, rawEnergy } from '../../../inputs/audio/dsp';
 import { NO_SEG, Renderer, type SegUniforms } from '../../../engine/renderer';
 import { Crossfade } from '../../../engine/transition';
 import { FpsMonitor } from '../../../engine/fps';
+import { StagePair } from '../../../engine/stagePair';
+import { registerScene } from '../../../../scenes/registry';
+import { planetRings3d } from '../../../../scenes/pack3d/planet-rings-3d';
+import { neonTunnel3d } from '../../../../scenes/pack3d/neon-tunnel-3d';
 import { DEFAULT_VISUAL_PARAMS } from '../../../engine/visualParams';
 import { BeatLatch, isFeatPacket, isStreamStale } from '../../../director/featureStream';
 import { DEFAULT_TEX_MIX, TEX_BEAT_PUSH } from '../../../director/texturePick';
 import { getShader, listShaders } from '../../../../shaders/registry';
+import { registerLibrary } from '../../../../shaders/library';
 import { LIB_TAG, M3_TAG, registerVisualizer } from '../../../../shaders/verifyVisualizer';
 import { hexCore } from '../../../../shaders/m3/hex-core';
 import { aegisScales } from '../../../../shaders/m3/aegis-scales';
@@ -70,6 +76,16 @@ import { rainforestCanopy } from '../../../../shaders/batch4/rainforest-canopy';
 import { lightningStorm } from '../../../../shaders/batch4/lightning-storm';
 import { lavaFlow } from '../../../../shaders/batch4/lava-flow';
 import { firefliesNight } from '../../../../shaders/batch4/fireflies-night';
+import { synthwaveSun } from '../../../../shaders/batch5/synthwave-sun';
+import { vhsGlitch } from '../../../../shaders/batch5/vhs-glitch';
+import { arcadePixels } from '../../../../shaders/batch5/arcade-pixels';
+import { boomboxBars } from '../../../../shaders/batch5/boombox-bars';
+import { graffitiDrip } from '../../../../shaders/batch5/graffiti-drip';
+import { vinylSpin } from '../../../../shaders/batch5/vinyl-spin';
+import { festivalLasers } from '../../../../shaders/batch5/festival-lasers';
+import { confettiBurst } from '../../../../shaders/batch5/confetti-burst';
+import { fireworkBloom } from '../../../../shaders/batch5/firework-bloom';
+import { mainStageWall } from '../../../../shaders/batch5/main-stage-wall';
 import { ShowBus, type BusMessage, type FeatPacket } from '../../../director/showBus';
 import { decodeGrid } from '../../../vision/signals';
 import { SegEaser } from '../../../vision/segEase';
@@ -128,16 +144,23 @@ const DEFS = [
   lightningStorm,
   lavaFlow,
   firefliesNight,
+  synthwaveSun,
+  vhsGlitch,
+  arcadePixels,
+  boomboxBars,
+  graffitiDrip,
+  vinylSpin,
+  festivalLasers,
+  confettiBurst,
+  fireworkBloom,
+  mainStageWall,
 ];
 
-function rotate<T>(arr: T[], k: number): T[] {
-  const n = arr.length;
-  const s = ((k % n) + n) % n;
-  return [...arr.slice(s), ...arr.slice(0, s)];
-}
+const SCENES = [planetRings3d, neonTunnel3d];
 
 export default function ShowOutput() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const threeCanvasRef = useRef<HTMLCanvasElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
   const blackRef = useRef<HTMLDivElement>(null);
   const tagRef = useRef<HTMLDivElement>(null);
@@ -145,7 +168,8 @@ export default function ShowOutput() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const threeCanvas = threeCanvasRef.current;
+    if (!canvas || !threeCanvas) return;
     let renderer: Renderer;
     try {
       renderer = new Renderer(canvas);
@@ -153,6 +177,9 @@ export default function ShowOutput() {
       setStatus(err instanceof Error ? err.message : 'WebGL unavailable');
       return;
     }
+    registerLibrary(DEFS);
+    for (const s of SCENES) registerScene(s);
+    const pair = new StagePair(canvas, threeCanvas);
     const fpsMon = new FpsMonitor();
     const bus = new ShowBus();
     let cancelled = false;
@@ -181,6 +208,9 @@ export default function ShowOutput() {
     let boost = 0;
     let prevBeat = false;
     let lastNow = performance.now();
+    // Displayed palette glides toward each new theme (~1.5 s) instead of
+    // snapping, so flyer changes melt across the wall.
+    let shownPal: string[] = [...show.palette];
     const env = new Envelope();
     // M7 event-art layer: decoded visuals by id + the director's pick.
     const art = new Map<string, HTMLImageElement>();
@@ -195,26 +225,31 @@ export default function ShowOutput() {
       visualId: string,
       transition: { type: string; durationMs: number },
     ) => {
-      const def = getShader(visualId) ?? listShaders().find((d) => d.tags?.includes(M3_TAG) || d.tags?.includes(LIB_TAG));
-      if (!def) return;
-      if (transition.type === 'flash-cut') flash = Math.max(flash, 1);
-      if (transition.type === 'cut' || transition.type === 'flash-cut') {
-        renderer.setShader(def);
+      const applyGl = () => {
+        const def = getShader(visualId) ?? listShaders().find((d) => d.tags?.includes(M3_TAG) || d.tags?.includes(LIB_TAG));
+        if (!def) return;
+        if (transition.type === 'flash-cut') flash = Math.max(flash, 1);
+        if (transition.type === 'cut' || transition.type === 'flash-cut') {
+          renderer.setShader(def);
+          const c = renderer.tryCompile(def);
+          currentProg = 'prog' in c ? c.prog : currentProg;
+          toProg = null;
+          fade = null;
+          return;
+        }
         const c = renderer.tryCompile(def);
-        currentProg = 'prog' in c ? c.prog : currentProg;
-        toProg = null;
-        fade = null;
-        return;
-      }
-      const c = renderer.tryCompile(def);
-      if ('prog' in c && currentProg) {
-        toProg = c.prog;
-        fade = new Crossfade(Math.max(60, transition.durationMs));
-        fade.begin(performance.now());
-      } else if ('prog' in c) {
-        currentProg = c.prog;
-        renderer.setShader(def);
-      }
+        if ('prog' in c && currentProg) {
+          toProg = c.prog;
+          fade = new Crossfade(Math.max(60, transition.durationMs));
+          fade.begin(performance.now());
+        } else if ('prog' in c) {
+          currentProg = c.prog;
+          renderer.setShader(def);
+        }
+      };
+      // Fragment->fragment keeps the GPU crossfade; anything involving a
+      // 3D scene dips through black so there is never a hard cut.
+      pair.request(visualId, applyGl);
     };
 
     bus.onMessage = (m: BusMessage) => {
@@ -231,12 +266,15 @@ export default function ShowOutput() {
           show.sensitivity = m.state.sensitivity;
           show.blackout = m.state.blackout;
           show.bpm = m.state.bpm;
-          const def = getShader(m.state.visualId);
-          if (def) {
-            renderer.setShader(def);
-            const c = renderer.tryCompile(def);
-            currentProg = 'prog' in c ? c.prog : currentProg;
-          }
+          const id = m.state.visualId;
+          pair.request(id, () => {
+            const def = getShader(id);
+            if (def) {
+              renderer.setShader(def);
+              const c = renderer.tryCompile(def);
+              currentProg = 'prog' in c ? c.prog : currentProg;
+            }
+          });
         } else {
           applyScene(m.visualId, m.transition);
         }
@@ -399,8 +437,13 @@ export default function ShowOutput() {
           msSincePacket: lastFeatAt === null ? -1 : now - lastFeatAt,
         });
       }
-      const pal = rotate(show.palette, show.emphasis);
-      if (!show.blackout) {
+      shownPal = easePaletteToward(shownPal, show.palette, 1 - Math.exp(-dt / 0.45));
+      const pal = applyPaletteVariation(shownPal, show.emphasis);
+      const backend = pair.frame(now);
+      if (!show.blackout && backend === 'three') {
+        pair.renderThree(now / 1000, f, pal, show.intensity + boost, show.speed, pulse, show.extra, m.scale, seg.motion);
+      }
+      if (!show.blackout && backend === 'gl') {
         const tick = fade?.tick(now) ?? null;
         if (tick && currentProg && toProg) {
           renderer.renderCrossfade(
@@ -460,6 +503,7 @@ export default function ShowOutput() {
   return (
     <main style={styles.full} onClick={goFullscreen}>
       <canvas ref={canvasRef} style={styles.canvas} />
+      <canvas ref={threeCanvasRef} style={styles.canvas} />
       <div ref={flashRef} style={{ ...styles.overlay, background: '#fff', opacity: 0 }} />
       <div ref={blackRef} style={{ ...styles.overlay, background: '#000', opacity: 0 }} />
       {status !== '' && <div style={styles.status}>{status}</div>}

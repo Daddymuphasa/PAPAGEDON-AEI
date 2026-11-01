@@ -41,9 +41,9 @@ vec3 pal(float t) {
 }
 
 float sdTri(vec2 q, float r) {
-  float a1 = dot(q, vec2(0.0, -1.0)) + r * 0.5;
-  float a2 = dot(q, vec2(0.8660254, 0.5)) + r * 0.5;
-  float a3 = dot(q, vec2(-0.8660254, 0.5)) + r * 0.5;
+  float a1 = dot(q, vec2(0.0, -1.0)) - r * 0.5;
+  float a2 = dot(q, vec2(0.8660254, 0.5)) - r * 0.5;
+  float a3 = dot(q, vec2(-0.8660254, 0.5)) - r * 0.5;
   return max(a1, max(a2, a3));
 }
 
@@ -69,8 +69,8 @@ void main() {
   float edge = smoothstep(0.05, 0.0, abs(sd)) * (0.6 + burst * 0.8);
   float grad = clamp(q.y * 2.0 + 0.5, 0.0, 1.0);
   vec3 col = vec3(0.008, 0.008, 0.013);
-  col = col + pal(clamp(h * 0.5 + grad * 0.4 + burst * 0.15, 0.0, 1.0)) * face * (0.25 + 0.35 * u_mid);
-  col = col + pal(clamp(0.55 + h * 0.4, 0.0, 1.0)) * edge * 0.9;
+  col = col + pal(clamp(h * 0.5 + grad * 0.4 + burst * 0.15, 0.0, 1.0)) * face * (0.5 + 0.6 * u_mid);
+  col = col + pal(clamp(0.55 + h * 0.4, 0.0, 1.0)) * edge * 1.2;
   float sp = pow(hash21(floor(p * 90.0) + floor(u_time * 10.0) * 0.61), 24.0);
   col = col + vec3(0.9, 0.95, 1.0) * sp * (u_high * u_p3 * 1.5 + burst * 0.3);
   col = col * (0.35 + 0.65 * u_intensity);

@@ -1,5 +1,7 @@
 // Plain-code theme checks (M2). Pure: client-, server- and test-safe.
 // The model must return a well-formed theme; these checks prove it.
+import { CATALOG_IDS } from '../../../shaders/catalog';
+
 export const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 export const PALETTE_MIN_COLORS = 3;
 export const PALETTE_MAX_COLORS = 6;
@@ -34,7 +36,8 @@ function checkRange(
   if (v.min < lo || v.max > hi) errors.push(`${name} must stay within ${lo}-${hi}`);
 }
 
-export function verifyThemePlain(theme: unknown, availableIds: string[]): VerifyResult {
+export function verifyThemePlain(theme: unknown, availableIds?: string[]): VerifyResult {
+  const ids = availableIds && availableIds.length > 0 ? availableIds : CATALOG_IDS;
   const errors: string[] = [];
   if (typeof theme !== 'object' || theme === null) {
     return { ok: false, errors: ['theme is not an object'] };
@@ -71,8 +74,22 @@ export function verifyThemePlain(theme: unknown, availableIds: string[]): Verify
     errors.push(`suggestedShaderIds must list at least ${MIN_SUGGESTED_SHADERS} shader`);
   } else {
     for (const id of t.suggestedShaderIds) {
-      if (typeof id !== 'string' || !availableIds.includes(id)) {
+      if (typeof id !== 'string' || !ids.includes(id)) {
         errors.push(`unknown shader id: ${String(id)}`);
+      }
+    }
+  }
+
+  // Roles are optional (old cached themes lack them) but must be valid hex.
+  if (t.roles !== undefined) {
+    if (typeof t.roles !== 'object' || t.roles === null) {
+      errors.push('roles must be an object when present');
+    } else {
+      const r = t.roles as Record<string, unknown>;
+      for (const k of ['background', 'primary', 'secondary', 'accent', 'highlight']) {
+        if (typeof r[k] !== 'string' || !HEX_COLOR.test(r[k] as string)) {
+          errors.push(`invalid hex colour in roles.${k}: ${String(r[k])}`);
+        }
       }
     }
   }

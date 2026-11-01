@@ -9,6 +9,12 @@ function hexToRgb(hex: string): [number, number, number] {
   return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
+// Short palettes repeat the nearest slot — never pad with black bands.
+function slot(palette: string[], i: number): string {
+  if (palette.length === 0) return '#202020';
+  return palette[Math.min(i, palette.length - 1)] ?? '#202020';
+}
+
 function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLShader {
   const sh = gl.createShader(type);
   if (!sh) throw new Error('shader alloc failed');
@@ -162,7 +168,7 @@ export class Renderer {
     gl.uniform2f(u('u_resolution'), canvas.width, canvas.height);
     gl.uniform3fv(
       u('u_palette'),
-      [0, 1, 2, 3].flatMap((i) => hexToRgb(plan.palette[i] ?? '#000000')),
+      [0, 1, 2, 3].flatMap((i) => hexToRgb(slot(plan.palette, i))),
     );
     const a = gl.getAttribLocation(prog, 'p');
     gl.enableVertexAttribArray(a);
@@ -239,7 +245,7 @@ export class Renderer {
     gl.uniform2f(u('u_resolution'), w, h);
     gl.uniform3fv(
       u('u_palette'),
-      [0, 1, 2, 3].flatMap((i) => hexToRgb(palette[i] ?? '#000000')),
+      [0, 1, 2, 3].flatMap((i) => hexToRgb(slot(palette, i))),
     );
   }
 

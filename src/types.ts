@@ -1,9 +1,21 @@
 // PAPAGEDON AEI shared types (M1).
+// Colour roles: the flyer's inks mapped to jobs, so the show's identity
+// never depends on palette slot order. Optional because old cached themes
+// only carry palette[] — use coerceRoles()/rolesToDisplayPalette() to fill.
+export interface ThemeRoles {
+  background: string; // darkest tone the wall sits in
+  primary: string; // the flyer's most characteristic saturated ink
+  secondary: string; // next most distinct hue
+  accent: string; // third distinct hue, for peaks
+  highlight: string; // brightest spark colour (cream/gold/white)
+}
+
 export interface EventTheme {
   eventName: string;
   genre: string;
   mood: string;
   palette: string[]; // hex, e.g. ["#ff2d78", ...]
+  roles?: ThemeRoles;
   energy: number; // 0-1
   motifs: string[];
   typographyFeel: string;
@@ -75,6 +87,50 @@ export interface ShaderDefinition {
   tags?: string[]; // e.g. ['m3-visual'] (M3)
   params?: VisualParam[]; // declared tunable ranges (M3)
   meta?: ShaderMeta; // library metadata for scene picking (M9-B)
+}
+
+// True-3D scene definition: same library contract as ShaderDefinition
+// (id, tags, params, meta) but real geometry via three.js instead of a
+// fullscreen fragment shader. three.js stays out of this file: the stage
+// feeds plain-data SceneUniforms and the object is opaque here.
+export interface SceneUniforms {
+  time: number;
+  energy: number;
+  beat: number;
+  bass: number;
+  mid: number;
+  high: number;
+  bpm: number;
+  intensity: number;
+  speed: number;
+  pulse: number;
+  p1: number;
+  p2: number;
+  p3: number;
+  palette: [string, string, string, string];
+  motion: number;
+}
+
+export interface Scene3DHandle {
+  object: unknown; // THREE.Object3D (opaque to keep three out of types)
+  update: (dt: number, u: SceneUniforms, cam: unknown) => void;
+  dispose?: () => void;
+}
+
+export interface Scene3DDefinition {
+  kind: 'scene3d';
+  id: string;
+  name: string;
+  tags?: string[];
+  params?: VisualParam[];
+  meta?: ShaderMeta;
+  create: () => Scene3DHandle;
+}
+
+export type VisualDefinition = ShaderDefinition | Scene3DDefinition;
+
+export function isScene3D(d: VisualDefinition): d is Scene3DDefinition {
+  return (d as Scene3DDefinition).kind === 'scene3d';
 }
 
 // M9-B library metadata: the Director hands these to Muse Spark so scene

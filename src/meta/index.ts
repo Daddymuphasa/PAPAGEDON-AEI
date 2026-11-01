@@ -1,29 +1,20 @@
 // All Meta model entry points. MOCK by default; LIVE calls go through the
 // server-side clients with cache + rate limiter. Server-side only.
-import type {
-  CrowdSignal,
-  DirectorInput,
-  EventTheme,
-  MusicInsight,
-  PlannerInput,
-  ScenePlan,
-  ShowPlan,
-  ThemeVerdict,
-} from '../types';
-import { listShaders } from '../../shaders/registry';
+import type { EventTheme, PlannerInput, ShowPlan, ThemeVerdict } from '../types';
+import { CATALOG_IDS } from '../../shaders/catalog';
 import { verifyThemePlain } from '../inputs/flyer/verifyTheme';
 import { cached } from './cache';
-import { directorProvider, isLive } from './config';
-import { chatJson, chatJsonWithUsage, metaCall } from './metaClient';
-import { basetenCall } from './basetenClient';
-import { mockCrowdSignal, mockInsight, mockPlan, mockShowPlan, mockTheme } from './mock';
+import { isLive } from './config';
+import { chatJson, chatJsonWithUsage } from './metaClient';
+import { mockShowPlan, mockTheme } from './mock';
+import { coerceRoles, deriveRoles, hexToHsl, hueDistance } from '../theme/roles';
 
 function assertServer() {
   if (typeof window !== 'undefined') throw new Error('meta stubs are server-side only');
 }
 
 function availableShaderIds(): string[] {
-  return listShaders().map((s) => s.id);
+  return [...CATALOG_IDS];
 }
 
 const THEME_SCHEMA: Record<string, unknown> = {
@@ -34,6 +25,18 @@ const THEME_SCHEMA: Record<string, unknown> = {
     genre: { type: 'string' },
     mood: { type: 'string' },
     palette: { type: 'array', items: { type: 'string' } },
+    roles: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        background: { type: 'string' },
+        primary: { type: 'string' },
+        secondary: { type: 'string' },
+        accent: { type: 'string' },
+        highlight: { type: 'string' },
+      },
+      required: ['background', 'primary', 'secondary', 'accent', 'highlight'],
+    },
     energy: { type: 'number' },
     motifs: { type: 'array', items: { type: 'string' } },
     typographyFeel: { type: 'string' },
@@ -79,19 +82,28 @@ export interface ExtractFeedback {
 
 // M2: flyer -> EventTheme via Muse Spark (vision). Once per event.
 // Optional feedback retries a failed theme with the verify errors attached.
-export async function extractTheme(flyerDataUrl: string, feedback?: ExtractFeedback): Promise<EventTheme> {
+export async function extractTheme(
+  flyerDataUrl: string,
+  feedback?: ExtractFeedback,
+  availableIds?: string[],
+): Promise<EventTheme> {
   assertServer();
   if (!isLive()) return mockTheme;
   const cacheInput = feedback ? flyerDataUrl + JSON.stringify(feedback) : flyerDataUrl;
-  return cached('theme', cacheInput, 24 * 3600_000, () => {
-    const ids = availableShaderIds().join(', ');
+  const theme = await cached('theme', cacheInput, 24 * 3600_000, () => {
+    const ids = (availableIds && availableIds.length > 0 ? availableIds : availableShaderIds()).join(', ');
     const developer =
       'You extract a visual theme from an event flyer for a real-time music visualizer. ' +
       'Reply with JSON only, matching the provided schema exactly: eventName, genre, mood, ' +
-      'palette (3-6 hex colours like "#ff2d78", dominant first), energy 0-1, ' +
+      'palette (3-6 hex colours like "#ff2d78": the flyer\'s key graphic inks, most ' +
+      'characteristic first — never lead with the flat background black/white), energy 0-1, ' +
       'motifs (up to 8 short tags), typographyFeel, tempoBpm {min,max} ' +
       '(plausible BPM range for the genre), sceneSwitchSeconds {min,max} ' +
-      '(how often visuals should cut, 2-30s), suggestedShaderIds (1 or more ids, ONLY from this list: ' +
+      '(how often visuals should cut, 2-30s), roles {background, primary, secondary, ' +
+      'accent, highlight} (5 hex: background = darkest tone for the wall; primary = the ' +
+      'flyer\'s most characteristic saturated ink, never near-black/near-white; ' +
+      'secondary/accent = next most distinct hues; highlight = brightest spark colour), ' +
+      'suggestedShaderIds (6-12 ids, ONLY from this list: ' +
       `${ids}).` +
       (feedback ? ` Fix exactly these errors in the previous theme and keep everything else: ${feedback.errors.join('; ')}.` : '');
     const userText = feedback
@@ -113,16 +125,33 @@ export async function extractTheme(flyerDataUrl: string, feedback?: ExtractFeedb
       schema: THEME_SCHEMA,
     });
   });
+  // Same shape as mock, even for old cached themes without roles.
+  theme.roles = coerceRoles(theme.palette, theme.roles);
+  return theme;
 }
 
 // M2: judge check — does the theme actually match the flyer?
-export async function judgeTheme(flyerDataUrl: string, theme: EventTheme): Promise<ThemeVerdict> {
+export async function judgeTheme(
+  flyerDataUrl: string,
+  theme: EventTheme,
+  availableIds?: string[],
+  samplePalette?: string[],
+): Promise<ThemeVerdict> {
   assertServer();
   if (!isLive()) {
-    const check = verifyThemePlain(theme, availableShaderIds());
-    return check.ok
-      ? { pass: true, reason: 'theme is well-formed (mock judge)' }
-      : { pass: false, reason: check.errors[0] };
+    const ids = availableIds && availableIds.length > 0 ? availableIds : availableShaderIds();
+    const check = verifyThemePlain(theme, ids);
+    if (!check.ok) return { pass: false, reason: check.errors[0] };
+    // Visible check: the theme's primary must sit near the flyer's own.
+    if (samplePalette && samplePalette.length >= 3) {
+      const want = deriveRoles(samplePalette).primary;
+      const got = coerceRoles(theme.palette, theme.roles).primary;
+      const drift = hueDistance(hexToHsl(want)[0], hexToHsl(got)[0]);
+      if (drift > 0.12) {
+        return { pass: false, reason: `theme primary ${got} does not match flyer primary ${want}` };
+      }
+    }
+    return { pass: true, reason: 'theme matches the flyer (mock judge)' };
   }
   return cached('judge', flyerDataUrl + JSON.stringify(theme), 3600_000, () =>
     chatJson<ThemeVerdict>({
@@ -149,51 +178,9 @@ export async function judgeTheme(flyerDataUrl: string, theme: EventTheme): Promi
   );
 }
 
-// M4: rolling 10-30s chunk -> lyrics/keywords via Muse Voice Transcribe.
-export async function transcribeChunk(chunkRef: string): Promise<{ lyrics: string; keywords: string[] }> {
-  assertServer();
-  if (!isLive()) return { lyrics: '', keywords: mockInsight.keywords };
-  return cached('transcribe', chunkRef, 3600_000, () =>
-    metaCall<{ lyrics: string; keywords: string[] }>('/muse-voice/transcribe', { chunk: chunkRef }),
-  );
-}
-
-// M4: chunk summary -> genre/section/mood via Muse Spark.
-export async function analyzeMusic(summary: string): Promise<MusicInsight> {
-  assertServer();
-  if (!isLive()) return mockInsight;
-  return cached('analyze', summary, 600_000, () =>
-    metaCall<MusicInsight>('/muse-spark/analyze', { summary }),
-  );
-}
-
-// M5: throttled camera frame -> density/movement via SAM 3.1.
-export async function segmentCrowd(frameRef: string): Promise<CrowdSignal> {
-  assertServer();
-  if (!isLive()) return mockCrowdSignal;
-  return cached('crowd', frameRef, 60_000, () =>
-    metaCall<CrowdSignal>('/sam-3.1/segment', { frame: frameRef }),
-  );
-}
-
-// M5: director reasoning. Provider switchable by config: Muse Spark
-// (Meta Model API) or Muse Spark Open (Baseten open weights).
-export async function planScene(input: DirectorInput): Promise<ScenePlan> {
-  assertServer();
-  if (!isLive()) return mockPlan(input);
-  const key = JSON.stringify({
-    t: input.theme,
-    s: input.insight?.section,
-    g: input.insight?.genre,
-    d: input.crowd?.density,
-  });
-  if (directorProvider() === 'muse-spark-open') {
-    return cached('plan-open', key, 30_000, () =>
-      basetenCall<ScenePlan>({ prompt: 'Plan the next scene.', input }),
-    );
-  }
-  return cached('plan', key, 30_000, () => metaCall<ScenePlan>('/muse-spark/direct', { input }));
-}
+// Retired in Phase 1: the legacy M1/M4/M5 stubs (transcribeChunk,
+// analyzeMusic, segmentCrowd, planScene) died with the old home-page flow.
+// The show runs on extractTheme/judgeTheme/planShow only.
 
 const SHOWPLAN_SCHEMA: Record<string, unknown> = {
   type: 'object',
@@ -271,9 +258,11 @@ export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Pr
       'You direct a live music visual show. Given the theme, the last-20s audio summary, ' +
       'current scene and the last 3 plans, pick the next scene as strict JSON: visualId (only from ' +
       'the provided visualizer list), params (3 numbers, each inside its declared min-max range), ' +
-      'intensity 0-1, speed 0-2, paletteEmphasis (integer 0-3), transition {crossfade|cut|flash-cut, ' +
+      'intensity 0-1, speed 0-2, paletteEmphasis (integer 0-3: a colour-variation index — ' +
+      'the primary colour always stays fixed while secondary/accent shift), transition {crossfade|cut|flash-cut, ' +
       'durationMs 0-2000}, energyArc {build|peak|sustain|breakdown|release}, sectionSeconds 10-60, ' +
-      'reason (one plain-English line). Never repeat the current visual more than twice in a row; ' +
+      'reason (one plain-English line). Never pick the current scene visualId or the last plan visualId; ' +
+      'always use transition type crossfade with durationMs 1500; ' +
       'match the arc — drops hit hard, breakdowns breathe.' +
       (input.upcomingSections && input.upcomingSections.length > 0
         ? ' The show state lists upcoming mapped sections — anticipate them: ease in before a drop, hit on it.'

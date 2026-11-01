@@ -14,6 +14,7 @@ import type {
   ProfileSample,
   ShaderDefinition,
   ShowPlan,
+  VisualDefinition,
   ShowTransition,
   TextureMeta,
   VisionPrompt,
@@ -21,6 +22,7 @@ import type {
 } from '../types';
 import { EnergyBuffer, detectEvents, energyShifted } from './energy';
 import { PROFILE_WINDOW_S, computeProfile } from '../inputs/audio/profile';
+import { rolesToDisplayPalette } from '../theme/roles';
 import { withBasePath } from '../basePath';
 import { logDecision } from './decisionLog';
 import { isCapped, recordUsage } from './credit';
@@ -77,7 +79,7 @@ export interface DirectorView {
 
 export interface ShowDirectorOpts {
   bus: ShowBus;
-  defs: ShaderDefinition[];
+  defs: VisualDefinition[];
   getTheme: () => EventTheme | null;
   manualHoldS?: number;
   onUpdate: (v: DirectorView) => void;
@@ -169,7 +171,9 @@ export class ShowDirector {
       ],
       intensity: 0.7,
       speed: 1,
-      palette: [...(opts.getTheme()?.palette ?? ['#ff2d78', '#7b2dff', '#00e5ff', '#ffd166'])],
+      palette: rolesToDisplayPalette(
+        opts.getTheme() ?? { palette: ['#ff2d78', '#7b2dff', '#00e5ff', '#ffd166'] },
+      ),
       paletteEmphasis: 0,
     };
   }
@@ -265,10 +269,12 @@ export class ShowDirector {
     };
   }
 
-  // Theme -> show: palette, BPM handled by the page, opening scene now.
+  // Theme -> show: primary-first roles palette, opening scene now.
+  // BPM is handled by the page.
   opening(theme: EventTheme): void {
     const id = mapThemeToOpening(theme, this.opts.defs);
     const def = this.opts.defs.find((d) => d.id === id) ?? this.opts.defs[0];
+    const pal = rolesToDisplayPalette(theme);
     this.live = {
       ...this.live,
       visualId: def.id,
@@ -277,7 +283,7 @@ export class ShowDirector {
         def.params?.[1]?.def ?? 0.5,
         def.params?.[2]?.def ?? 0.5,
       ],
-      palette: [...theme.palette],
+      palette: [...pal],
       paletteEmphasis: 0,
     };
     this.pending = null;
@@ -289,9 +295,9 @@ export class ShowDirector {
       extra: [...this.live.extra] as [number, number, number],
       intensity: this.live.intensity,
       speed: this.live.speed,
-      palette: [...theme.palette],
+      palette: [...pal],
       paletteEmphasis: 0,
-      transition: { type: 'cut', durationMs: 0 },
+      transition: { type: 'crossfade', durationMs: 1500 },
     });
     logDecision({
       step: 'act',
@@ -321,7 +327,7 @@ export class ShowDirector {
         speed: this.live.speed,
         palette: [...this.live.palette],
         paletteEmphasis: this.live.paletteEmphasis,
-        transition: { type: 'crossfade', durationMs: 400 },
+        transition: { type: 'crossfade', durationMs: 1500 },
       });
     } else {
       this.opts.bus.post({
@@ -420,10 +426,7 @@ export class ShowDirector {
       const dropTex = pickTextureForTag('drop', this.textures);
       if (dropTex !== null) this.applyTexture(dropTex, this.texMix, 'drop hit');
       if (this.pending) {
-        const fast: ShowTransition =
-          this.pending.transition.type === 'crossfade'
-            ? { type: 'crossfade', durationMs: Math.min(this.pending.transition.durationMs, 150) }
-            : this.pending.transition;
+        const fast: ShowTransition = { type: 'crossfade', durationMs: 250 };
         this.pending = { ...this.pending, transition: fast };
         this.executePending('drop hit');
       }
@@ -431,7 +434,7 @@ export class ShowDirector {
         step: 'local',
         model: 'local',
         input: 'drop detected',
-        result: this.pending ? 'fast cut on the drop' : 'flash + intensity spike',
+        result: this.pending ? 'fast fade on the drop' : 'flash + intensity spike',
         verify: null,
         retries: 0,
         latencyMs: null,

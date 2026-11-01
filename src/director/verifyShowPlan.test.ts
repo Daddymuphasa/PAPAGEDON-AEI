@@ -62,14 +62,14 @@ describe('verifyShowPlan', () => {
     expect(r.errors).toContain('transition.durationMs must be 0-2000');
   });
 
-  test('rejects a third repeat in a row', () => {
-    const r = verifyShowPlan(validPlan(), DEFS, ['hex-core', 'hex-core']);
+  test('rejects an immediate repeat', () => {
+    const r = verifyShowPlan(validPlan(), DEFS, ['warp-tunnel', 'hex-core']);
     expect(r.ok).toBe(false);
-    expect(r.errors).toContain('visual hex-core would repeat more than twice in a row');
+    expect(r.errors).toContain('visual hex-core repeats the previous visual');
   });
 
-  test('allows a second showing in a row', () => {
-    expect(verifyShowPlan(validPlan(), DEFS, ['warp-tunnel', 'hex-core']).ok).toBe(true);
+  test('allows a return after a different visual', () => {
+    expect(verifyShowPlan(validPlan(), DEFS, ['hex-core', 'warp-tunnel']).ok).toBe(true);
   });
 
   test('rejects bad arc, section and reason', () => {

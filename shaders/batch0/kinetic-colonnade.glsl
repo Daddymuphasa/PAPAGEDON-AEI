@@ -89,19 +89,20 @@ void main() {
       break;
     }
   }
-  float fog = exp(-dist * (0.06 + 0.12 * u_p3));
+  float fog = exp(-dist * (0.04 + 0.08 * u_p3));
   vec3 hitP = ro + rd * dist;
   vec3 col = pal(0.03) * 0.25 + pal(0.1) * exp(-dist * 0.1) * 0.2;
   if (mat > 0.5) {
     vec2 pr2 = vec2(abs(hitP.x) - 3.0, mod(hitP.z + 3.0, 6.0) - 3.0);
     float pillarD2 = length(pr2) - (0.55 + pump * 0.3);
     float isPillar = step(pillarD2, hitP.y);
-    float chase = glow * (0.35 + 1.3 * u_beat + 0.6 * u_pulse);
+    float chase = glow * (0.7 + 1.3 * u_beat + 0.6 * u_pulse);
     vec3 pillarCol = pal(clamp(0.35 + glow * 0.4 + u_mid * 0.2, 0.0, 1.0));
-    vec3 floorCol = pal(clamp(0.05 + u_high * 0.1, 0.0, 1.0)) * 0.5;
-    floorCol += pal(0.6) * step(0.97, hash21(floor(hitP.xz * 8.0))) * u_high * 0.6;
-    vec3 hitCol = mix(floorCol, pillarCol * (0.4 + chase), isPillar);
-    hitCol += pal(0.8) * chase * exp(-dist * 0.2) * 0.4 * isPillar;
+    vec3 floorCol = pal(clamp(0.05 + u_high * 0.1, 0.0, 1.0)) * 0.6;
+    floorCol += pal(0.6) * step(0.95, hash21(floor(hitP.xz * 8.0))) * (0.25 + u_high * 0.8);
+    vec3 hitCol = mix(floorCol, pillarCol * (0.7 + chase), isPillar);
+    hitCol += pal(0.8) * chase * exp(-dist * 0.2) * 0.5 * isPillar;
+    hitCol += pal(0.75) * isPillar * glow * 0.3;
     col = mix(col, hitCol, fog);
   }
   col *= 0.35 + 0.65 * u_intensity;

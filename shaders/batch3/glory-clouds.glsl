@@ -51,8 +51,8 @@ void main() {
   float parting = 0.12 + 0.45 * u_energy + 0.1 * u_beat;
   float clearing = smoothstep(parting, parting + 0.35, length(p));
   float cloud = cl * (1.0 - clearing * 0.9);
-  vec3 col = mix(pal(0.75), pal(0.45), clearing);
-  col = mix(col, pal(0.55 + 0.2 * u_bass), cloud * 0.85);
+  vec3 col = mix(pal(0.7) * 0.3, pal(0.4) * 0.35, clearing);
+  col = mix(col, pal(0.6 + 0.2 * u_bass) * (0.6 + 0.6 * u_mid), cloud * 0.9);
   float rim = smoothstep(0.25, 0.0, abs(cloud - 0.45)) * clearing;
   col += pal(0.9) * rim * (0.4 + 0.6 * u_mid) * u_p2;
   float core = exp(-length(p) * 2.2);

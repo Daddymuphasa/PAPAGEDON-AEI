@@ -43,21 +43,27 @@ export function downscaleImage(file: File, maxDim = 1024): Promise<string> {
 export async function requestTheme(
   flyerDataUrl: string,
   feedback?: { previousTheme: EventTheme; errors: string[] },
+  availableIds?: string[],
 ): Promise<ThemeResponse> {
   const res = await fetch(withBasePath('/api/theme'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ flyerDataUrl, feedback }),
+    body: JSON.stringify({ flyerDataUrl, feedback, availableIds }),
   });
   if (!res.ok) throw new Error(`theme request failed: ${res.status}`);
   return { theme: (await res.json()) as EventTheme, model: res.headers.get('x-aei-model') ?? '?' };
 }
 
-export async function requestJudge(flyerDataUrl: string, theme: EventTheme): Promise<JudgeResponse> {
+export async function requestJudge(
+  flyerDataUrl: string,
+  theme: EventTheme,
+  availableIds?: string[],
+  samplePalette?: string[],
+): Promise<JudgeResponse> {
   const res = await fetch(withBasePath('/api/theme/judge'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ flyerDataUrl, theme }),
+    body: JSON.stringify({ flyerDataUrl, theme, availableIds, samplePalette }),
   });
   if (!res.ok) throw new Error(`judge request failed: ${res.status}`);
   return { verdict: (await res.json()) as ThemeVerdict, model: res.headers.get('x-aei-model') ?? '?' };

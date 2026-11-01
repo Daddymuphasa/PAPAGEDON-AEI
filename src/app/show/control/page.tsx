@@ -11,6 +11,7 @@ import { DEFAULT_IMAGE_COUNT, tagsForCount } from '../../../visuals/prompts';
 import { generateEventVisuals } from '../../../visuals/generate';
 import { DEFAULT_TEX_MIX } from '../../../director/texturePick';
 import { LocalAudioAnalyzer, mockFeatures, type CalibrationState } from '../../../inputs/audio/localAnalyzer';
+import { applyPaletteVariation, coerceRoles, easePaletteToward, rolesToDisplayPalette } from '../../../theme/roles';
 import { downscaleImage } from '../../../inputs/flyer/flyer';
 import { extractVerifiedTheme } from '../../../inputs/flyer/applyTheme';
 import { ShowDirector, type DirectorView } from '../../../director/showDirector';
@@ -44,6 +45,7 @@ import {
   type CreditState,
 } from '../../../director/credit';
 import { PALETTE_PRESETS, customPalette } from '../../../engine/visualParams';
+import { registerLibrary } from '../../../../shaders/library';
 import { hexCore } from '../../../../shaders/m3/hex-core';
 import { aegisScales } from '../../../../shaders/m3/aegis-scales';
 import { circuitVeins } from '../../../../shaders/m3/circuit-veins';
@@ -97,7 +99,21 @@ import { rainforestCanopy } from '../../../../shaders/batch4/rainforest-canopy';
 import { lightningStorm } from '../../../../shaders/batch4/lightning-storm';
 import { lavaFlow } from '../../../../shaders/batch4/lava-flow';
 import { firefliesNight } from '../../../../shaders/batch4/fireflies-night';
+import { synthwaveSun } from '../../../../shaders/batch5/synthwave-sun';
+import { vhsGlitch } from '../../../../shaders/batch5/vhs-glitch';
+import { arcadePixels } from '../../../../shaders/batch5/arcade-pixels';
+import { boomboxBars } from '../../../../shaders/batch5/boombox-bars';
+import { graffitiDrip } from '../../../../shaders/batch5/graffiti-drip';
+import { vinylSpin } from '../../../../shaders/batch5/vinyl-spin';
+import { festivalLasers } from '../../../../shaders/batch5/festival-lasers';
+import { confettiBurst } from '../../../../shaders/batch5/confetti-burst';
+import { fireworkBloom } from '../../../../shaders/batch5/firework-bloom';
+import { mainStageWall } from '../../../../shaders/batch5/main-stage-wall';
 import ControlPanel, { type SliderKey } from '../../gallery/ControlPanel';
+import { ThreeStage } from '../../../engine/threeStage';
+import { getScene, registerScene } from '../../../../scenes/registry';
+import { planetRings3d } from '../../../../scenes/pack3d/planet-rings-3d';
+import { neonTunnel3d } from '../../../../scenes/pack3d/neon-tunnel-3d';
 import DecisionLogPanel from '../../components/DecisionLogPanel';
 import { Badge, Button, MeterBar, SliderRow } from '../../ui/controls';
 import { font, ink, input, panel, sectionHead, signal, size, space, tabular } from '../../ui/theme';
@@ -156,7 +172,20 @@ const DEFS = [
   lightningStorm,
   lavaFlow,
   firefliesNight,
+  synthwaveSun,
+  vhsGlitch,
+  arcadePixels,
+  boomboxBars,
+  graffitiDrip,
+  vinylSpin,
+  festivalLasers,
+  confettiBurst,
+  fireworkBloom,
+  mainStageWall,
 ];
+
+const SCENES = [planetRings3d, neonTunnel3d];
+const ALL = [...DEFS, ...SCENES];
 
 const SEG_COLORS: Record<SectionKind, string> = {
   intro: ink.faint,
@@ -174,6 +203,8 @@ export default function ShowControl() {
   const flyerInputRef = useRef<HTMLInputElement>(null);
   const [view, setView] = useState<DirectorView | null>(null);
   const [theme, setTheme] = useState<EventTheme>(mockTheme);
+  const [flyerUrl, setFlyerUrl] = useState<string | null>(null);
+  const [paletteOverride, setPaletteOverride] = useState(false);
   const [preset, setPreset] = useState(0);
   const [custom, setCustom] = useState<[string, string, string]>(['#ff2d78', '#00e5ff', '#ffd166']);
   const [sensitivity, setSensitivity] = useState(1);
@@ -241,6 +272,7 @@ export default function ShowControl() {
   const tickNodeRef = useRef<AudioWorkletNode | null>(null);
   const tickReadyRef = useRef(false);
   const previewCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewThreeRef = useRef<HTMLCanvasElement | null>(null);
   const snapRef = useRef<ShowSnapshot | null>(null);
   const featRef = useRef<AudioFeatures | null>(null);
   const blackoutRef = useRef(false);
@@ -255,7 +287,7 @@ export default function ShowControl() {
     const analyzer = analyzerRef.current;
     const director = new ShowDirector({
       bus,
-      defs: DEFS,
+      defs: ALL,
       getTheme: () => themeRef.current,
       onUpdate: setView,
     });
@@ -385,14 +417,25 @@ export default function ShowControl() {
   // one window is enough. Cuts on scene change (a monitor, not the show).
   useEffect(() => {
     const canvas = previewCanvasRef.current;
-    if (!canvas) return;
+    const threeCanvas = previewThreeRef.current;
+    if (!canvas || !threeCanvas) return;
     let renderer: Renderer;
+    registerLibrary(DEFS);
+    for (const s of SCENES) registerScene(s);
     try {
       renderer = new Renderer(canvas);
     } catch {
       setPreviewError('Preview needs WebGL.');
       return;
     }
+    let stage: ThreeStage | null = null;
+    try {
+      stage = new ThreeStage(threeCanvas);
+    } catch {
+      stage = null;
+    }
+    threeCanvas.style.display = 'none';
+    let showingScene = false;
     let cancelled = false;
     let raf = 0;
     const easer = new SegEaser();
@@ -403,6 +446,7 @@ export default function ShowControl() {
     let progId: string | null = null;
     let pulse = 0;
     let lastNow = performance.now();
+    let shownPal: string[] | null = null;
     const loop = () => {
       if (cancelled) return;
       const now = performance.now();
@@ -412,8 +456,19 @@ export default function ShowControl() {
       const f0 = featRef.current;
       if (snap !== null && f0 !== null && !blackoutRef.current) {
         if (snap.visualId !== progId) {
-          const def = DEFS.find((d) => d.id === snap.visualId) ?? DEFS[0];
-          renderer.setShader(def);
+          const scene = stage !== null ? getScene(snap.visualId) : null;
+          if (scene && stage !== null) {
+            stage.setScene(scene);
+            canvas.style.display = 'none';
+            threeCanvas.style.display = 'block';
+            showingScene = true;
+          } else {
+            const def = DEFS.find((d) => d.id === snap.visualId) ?? DEFS[0];
+            renderer.setShader(def);
+            threeCanvas.style.display = 'none';
+            canvas.style.display = 'block';
+            showingScene = false;
+          }
           progId = snap.visualId;
         }
         const f = { ...f0, energy: env.step(rawEnergy(f0), dt * 1000) };
@@ -459,18 +514,36 @@ export default function ShowControl() {
           renderer.setSegMask(ef.rgba, ef.w, ef.h);
           seg = { mix: ef.mix, box: ef.box, motion: ef.motion };
         }
-        renderer.renderVisual(
-          now / 1000,
-          f,
-          rotate(snap.palette, snap.paletteEmphasis),
-          snap.intensity,
-          snap.speed,
-          pulse,
-          snap.extra,
-          1,
-          texRef.current.texMix,
-          seg,
-        );
+        // Displayed palette glides toward each new theme (~1.5 s); the
+        // primary slot stays fixed while secondary/accent vary per plan.
+        shownPal = easePaletteToward(shownPal ?? snap.palette, snap.palette, 1 - Math.exp(-dt / 0.45));
+        const pal = applyPaletteVariation(shownPal, snap.paletteEmphasis);
+        if (showingScene && stage !== null) {
+          stage.render(
+            now / 1000,
+            f,
+            pal,
+            snap.intensity,
+            snap.speed,
+            pulse,
+            snap.extra,
+            1,
+            seg.motion,
+          );
+        } else {
+          renderer.renderVisual(
+            now / 1000,
+            f,
+            pal,
+            snap.intensity,
+            snap.speed,
+            pulse,
+            snap.extra,
+            1,
+            texRef.current.texMix,
+            seg,
+          );
+        }
       }
       raf = requestAnimationFrame(loop);
     };
@@ -911,7 +984,8 @@ export default function ShowControl() {
     setFlyerBusy(true);
     try {
       const dataUrl = await downscaleImage(file);
-      const res = await extractVerifiedTheme(dataUrl);
+      setFlyerUrl(dataUrl);
+      const res = await extractVerifiedTheme(dataUrl, { fileName: file.name });
       if (!res.ok || !res.theme) {
         setFlyerError(res.errors[0] ?? 'verification failed');
         return;
@@ -921,7 +995,13 @@ export default function ShowControl() {
       const mid = Math.round((next.tempoBpm.min + next.tempoBpm.max) / 2);
       setBpm(mid);
       pushAudio(source, mid, fileName);
+      // Flyer roles drive preview + output immediately (no more stale colours).
+      const pal = rolesToDisplayPalette(next);
+      const c0 = pal[0] ?? '#ffffff';
+      setCustom([c0, pal[1] ?? c0, pal[2] ?? c0]);
+      setPreset(-1);
       directorRef.current?.opening(next);
+      if (!paletteOverride) directorRef.current?.manual({ palette: [...pal] });
       void runVisuals(next);
     } catch (err) {
       setFlyerError(err instanceof Error ? err.message : 'verification failed');
@@ -935,14 +1015,8 @@ export default function ShowControl() {
     window.open(withBasePath('/show/output'), '_blank', 'noopener,width=1280,height=720');
   };
 
-  function rotate<T>(arr: T[], k: number): T[] {
-    const n = arr.length;
-    const s = ((k % n) + n) % n;
-    return [...arr.slice(s), ...arr.slice(0, s)];
-  }
-
   const live = view?.live ?? { intensity: 0.7, speed: 1, extra: [1, 0.28, 1] as [number, number, number] };
-  const activeDef = DEFS.find((d) => d.id === view?.visualId) ?? DEFS[0];
+  const activeDef = ALL.find((d) => d.id === view?.visualId) ?? DEFS[0];
   // Track clock for the map playhead; re-derived every render (10 Hz via view).
   const trackT = Math.max(0, (performance.now() - audioRef.current.t0) / 1000);
   const trackPct = trackMap === null ? 0 : Math.min(100, Math.max(0, (trackT / trackMap.durationS) * 100));
@@ -982,17 +1056,39 @@ export default function ShowControl() {
         <div style={styles.col}>
           <div style={styles.zoneTitle}>Inputs</div>
           <section style={styles.card}>
-            <h2 style={styles.cardHead}>Flyer</h2>
+            <h2 style={styles.cardHead}>Event Identity</h2>
             <div style={styles.row}>
               <Button onClick={() => flyerInputRef.current?.click()} disabled={flyerBusy}>
-                {flyerBusy ? 'Verifying…' : 'Load flyer'}
+                {flyerBusy ? 'Verifying…' : flyerUrl ? 'Change flyer' : 'Load flyer'}
               </Button>
+              {flyerUrl && (
+                <img src={flyerUrl} alt="Event flyer" style={{ width: 64, height: 'auto', borderRadius: 6 }} />
+              )}
               <span style={styles.dim}>{theme.eventName}</span>
             </div>
             <div style={styles.row}>
-              {theme.palette.map((c) => (
-                <span key={c} title={c} style={{ ...styles.swatch, background: c }} />
-              ))}
+              <span style={styles.dim}>
+                {theme.genre} · {theme.mood}
+              </span>
+            </div>
+            <div style={styles.row}>
+              {(
+                [
+                  ['Background', 'background'],
+                  ['Primary', 'primary'],
+                  ['Secondary', 'secondary'],
+                  ['Accent', 'accent'],
+                  ['Highlight', 'highlight'],
+                ] as const
+              ).map(([label, key]) => {
+                const c = coerceRoles(theme.palette, theme.roles)[key];
+                return (
+                  <span key={key} title={`${label} ${c}`} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ ...styles.swatch, background: c }} />
+                    <span style={styles.dim}>{label}</span>
+                  </span>
+                );
+              })}
             </div>
             {flyerError !== null && <span style={styles.error}>{flyerError}</span>}
             <input
@@ -1124,6 +1220,7 @@ export default function ShowControl() {
             <h2 style={styles.cardHead}>Live preview</h2>
             <div style={styles.previewWrap}>
               <canvas ref={previewCanvasRef} style={styles.previewCanvas} />
+              <canvas ref={previewThreeRef} style={styles.previewThree} />
               {blackout && <div style={styles.previewBlack}>BLACKOUT</div>}
             </div>
             {previewError !== null && <span style={styles.error}>{previewError}</span>}
@@ -1154,6 +1251,24 @@ export default function ShowControl() {
             {advancedOpen && (
               <div style={styles.col}>
                 <h2 style={styles.cardHead}>Manual override</h2>
+                <div style={styles.row}>
+                  <Button
+                    kind={paletteOverride ? 'active' : 'default'}
+                    onClick={() => {
+                      const on = !paletteOverride;
+                      setPaletteOverride(on);
+                      if (!on) {
+                        directorRef.current?.manual({ palette: [...rolesToDisplayPalette(themeRef.current)] });
+                      } else {
+                        const pal = preset >= 0 ? [...PALETTE_PRESETS[preset].colors] : [...customPalette(custom)];
+                        directorRef.current?.manual({ palette: pal });
+                      }
+                    }}
+                  >
+                    {paletteOverride ? 'Palette override: ON' : 'Palette override: OFF'}
+                  </Button>
+                  {paletteOverride && <Badge tone="warn">Theme palette overridden</Badge>}
+                </div>
                 <ControlPanel
                   preset={preset}
                   custom={custom}
@@ -1162,13 +1277,16 @@ export default function ShowControl() {
                   visualParams={activeDef.params ?? []}
                   extra={live.extra}
                   bare
+                  paletteDisabled={!paletteOverride}
                   onPreset={(i) => {
                     setPreset(i);
+                    if (!paletteOverride) return;
                     const pal = i >= 0 ? [...PALETTE_PRESETS[i].colors] : [...customPalette(custom)];
                     directorRef.current?.manual({ palette: pal });
                   }}
                   onCustom={(c) => {
                     setCustom(c);
+                    if (!paletteOverride) return;
                     if (preset === -1) directorRef.current?.manual({ palette: [...customPalette(c)] });
                   }}
                   onSlider={(key: SliderKey, v: number) => {
@@ -1469,6 +1587,13 @@ const styles: Record<string, CSSProperties> = {
     border: `1px solid ${ink.line}`,
   },
   previewCanvas: { width: '100%', height: '100%', display: 'block' },
+  previewThree: {
+    position: 'absolute',
+    inset: 0,
+    width: '100%',
+    height: '100%',
+    display: 'none',
+  },
   previewBlack: {
     position: 'absolute',
     inset: 0,

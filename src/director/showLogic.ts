@@ -1,5 +1,6 @@
 // M4 show timing + theme mapping. Pure: Node-safe and unit-tested.
 import type { EventTheme } from '../types';
+import { CATALOG } from '../../shaders/catalog';
 
 export const PLANNER_CADENCE_S = 20;
 export const MIN_PLANNER_GAP_S = 8;
@@ -24,23 +25,20 @@ export function isPhraseBoundary(beatsSinceTransition: number, phraseLen: number
   return beatsSinceTransition >= phraseLen;
 }
 
-// Theme -> opening scene: exact suggested id, else a name keyword hit,
-// else the first registered visualizer.
+// Theme -> opening scene: exact suggested id, else an energy-matched
+// catalog scene. No word-matching: substring hits ("bass" -> Bass Portal)
+// made every flyer open on the same scene regardless of mood.
 export function mapThemeToOpening(
   theme: EventTheme | null,
   defs: { id: string; name: string }[],
 ): string {
-  const fallback = defs[0]?.id ?? '';
+  const fallback = defs[0]?.id ?? CATALOG[0]?.id ?? '';
   if (!theme) return fallback;
   for (const id of theme.suggestedShaderIds) {
     if (defs.some((d) => d.id === id)) return id;
   }
-  for (const id of theme.suggestedShaderIds) {
-    const words = id.toLowerCase().split(/[-_ ]+/).filter((w) => w.length > 2);
-    for (const w of words) {
-      const hit = defs.find((d) => d.id.includes(w) || d.name.toLowerCase().includes(w));
-      if (hit) return hit.id;
-    }
-  }
-  return fallback;
+  const energy = theme.energy;
+  const hit = CATALOG.find((c) => energy >= c.energyRange[0] && energy <= c.energyRange[1]) ?? CATALOG[0];
+  if (!hit) return fallback;
+  return defs.some((d) => d.id === hit.id) ? hit.id : fallback;
 }

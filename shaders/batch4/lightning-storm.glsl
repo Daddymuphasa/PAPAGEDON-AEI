@@ -53,8 +53,9 @@ void main() {
   float cl = sin(uv.x * 3.0 + t * 0.5) * 0.5 + 0.5;
   cl *= sin(uv.y * 4.0 - t * 0.4 + uv.x * 2.0 + u_bass * 2.0) * 0.5 + 0.5;
   cl = pow(cl, 1.4);
-  vec3 col = mix(pal(0.02) * 0.3, pal(0.18 + 0.15 * u_mid), cl);
-  float strike = step(0.72 - 0.25 * u_energy, u_beat);
+  vec3 col = mix(pal(0.02) * 0.35, pal(0.3 + 0.2 * u_mid) * (0.45 + 0.55 * cl), cl);
+  col *= 0.7 + 0.5 * uv.y;
+  float strike = max(step(0.72 - 0.25 * u_energy, u_beat), smoothstep(0.7, 0.95, u_bass));
   float lane = 0.2 + 0.6 * hash11(floor(t * 2.0) + 3.0);
   float bolt = 0.0;
   for (int i = 0; i < BRANCHES; i++) {
@@ -72,6 +73,7 @@ void main() {
   col += pal(0.85) * flash * 0.25 * u_p3;
   float rumble = exp(-uv.y * 2.5) * u_bass;
   col += pal(0.4) * rumble * 0.3;
+  col += pal(0.5) * exp(-uv.y * 4.0) * (0.12 + 0.25 * u_bass);
   col *= 0.35 + 0.65 * u_intensity;
   // Shared event-art layer: displaced sample over the shader look (no-op at mix 0).
   float aeiMix = clamp(u_texMix, 0.0, 1.0) * 0.85;

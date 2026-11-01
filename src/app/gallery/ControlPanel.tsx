@@ -29,6 +29,8 @@ export default function ControlPanel(props: {
   onSlider(key: SliderKey, v: number): void;
   onExtra(i: number, v: number): void;
   bare?: boolean;
+  /** Control page: palette presets stay locked unless the operator opts in. */
+  paletteDisabled?: boolean;
 }) {
   const { preset, custom, values, visualName, visualParams, extra } = props;
   return (
@@ -38,6 +40,7 @@ export default function ControlPanel(props: {
         <span style={styles.label}>Palette</span>
         <select
           value={preset}
+          disabled={props.paletteDisabled}
           onChange={(e) => props.onPreset(Number(e.target.value))}
           style={styles.select}
         >
@@ -56,6 +59,7 @@ export default function ControlPanel(props: {
               key={i}
               type="color"
               value={c}
+              disabled={props.paletteDisabled}
               title={`Custom colour ${i + 1}`}
               onChange={(e) => {
                 const next = [...custom] as [string, string, string];

@@ -51,7 +51,7 @@ Aegis Scales, Circuit Veins, Warp Tunnel, Prism Burst. All are new code
 written during the hackathon; nothing is copied from any other repo or
 product. Raw WebGL was kept over three.js: every look is procedural
 fullscreen-shader math, so one renderer interface and one registry serve
-all fifty-three with zero new dependencies.
+all sixty-three with zero new dependencies.
 
 Render path: `Renderer.renderVisual()` takes palette/intensity from the
 shared `VisualParams` panel object plus an eased beat `pulse`; switches
@@ -231,7 +231,7 @@ tag, then fall back to a canvas palette gradient. Every step logs as
 `image`; over-cap generation is blocked and logged as `cap`.
 
 The renderer uploads the active visual to texture unit 2 (the FBO mix
-pass owns 0–1) and sets `u_eventTex`/`u_texMix` every frame; all fifty-three
+pass owns 0–1) and sets `u_eventTex`/`u_texMix` every frame; all sixty-three
 library shaders end with an identical layer that displacement-samples the
 artwork and blends it over the shader colour (a no-op at mix 0, so the
 gallery and benchmarks are untouched). The output window decodes the
@@ -281,10 +281,42 @@ logs one `sam` entry per tick. The director stores the compact read
 Muse Spark the vision state with a framing sentence; the cache key
 gains the read only while the camera runs. The renderer uploads the
 eased RGBA grid to texture unit 3 (FBO mix owns 0-1, event art owns 2)
-and sets the seg uniforms every frame; all fifty-three library shaders end with an
+and sets the seg uniforms every frame; all sixty-three library shaders end with an
 identical tail (performer rim + glow, crowd boost, motion pulse) that
 is a no-op at mix 0, so the gallery and benchmarks are untouched. The
 output window decodes each `seg` payload, eases grids/box/motion per
 frame, and fades stale masks after 10s. `npm run check:meta` probes
 SAM with the exact `sam.ts` request shape, where HTTP 200 with empty
 output counts as OK.
+
+## M9-B visual quality loop + Pack 3D (three.js where necessary)
+
+A 63-shader headless contact sheet (SwiftShader) showed eleven weak
+looks: one empty-triangle SDF bug (Prism Burst), one inverted grid
+perspective (Trance Horizon), four over-bright flat backgrounds
+(Rising Doves, Rose Petal Fall, Glory Clouds, Rainforest Canopy —
+rebuilt with dark palette-scaled skies), and five over-gated idle
+states (Lightning Storm, Warehouse Fog, Kinetic Colonnade,
+Circuit Veins, plus a Confetti Burst ambient rain layer so drops are
+not the only state). Fixes keep the uniform contract, tails, quality
+knob, and metadata untouched.
+
+True geometry lives beside the fragment library, not in it:
+`scenes/pack3d/` holds `Scene3DDefinition` objects (Planet Rings 3D,
+Neon Tunnel 3D) driven by plain-data `SceneUniforms` — the same
+contract fields (time/energy/beat/bands/palette/p1-p3/motion) the
+fragment shaders read. `src/engine/threeStage.ts` owns one
+`WebGLRenderer`, a shared camera, per-frame uniform mapping, and
+dispose-on-swap; scenes never touch audio or GL state. Pages that
+render visuals (gallery, control preview, output) stack the three
+canvas over the fragment canvas via `src/engine/stagePair.ts`:
+fragment-to-fragment keeps the GPU crossfade, anything involving a
+scene dips through black (~500ms) so there is never a hard cut, and
+the control preview cuts (it is a monitor, not the show). The
+director's `defs` widened from `ShaderDefinition[]` to
+`VisualDefinition[]` (it only ever read id/name/tags/params/meta),
+so Muse Spark and the mock planner pick from all 65 visuals; the
+verifier already took `{id, params}` and needed no change. Known
+limitation: 3D scenes honour palette/audio/motion but not the
+event-art texture or performer mask yet — geometry has no fragment
+tail to hang them on.

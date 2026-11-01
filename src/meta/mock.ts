@@ -1,14 +1,5 @@
 // Shared mock payloads (MOCK mode). Client-safe: no keys, no fetches.
-import type {
-  CrowdSignal,
-  DirectorInput,
-  EnergyArc,
-  EventTheme,
-  MusicInsight,
-  PlannerInput,
-  ScenePlan,
-  ShowPlan,
-} from '../types';
+import type { EnergyArc, EventTheme, PlannerInput, ShowPlan, VisualizerInfo } from '../types';
 import { pickTextureForPlan } from '../director/texturePick';
 
 export const mockTheme: EventTheme = {
@@ -21,30 +12,17 @@ export const mockTheme: EventTheme = {
   typographyFeel: 'bold condensed glow',
   tempoBpm: { min: 95, max: 125 },
   sceneSwitchSeconds: { min: 4, max: 12 },
-  suggestedShaderIds: ['example-bass-pulse'],
+  suggestedShaderIds: [
+    'lagos-night-drive',
+    'hex-core',
+    'bass-portal',
+    'particle-galaxy',
+    'ember-field',
+    'ankara-kaleido',
+    'strobe-lattice',
+    'neon-tunnel-3d',
+  ],
 };
-
-export const mockInsight: MusicInsight = {
-  genre: 'Afrobeats',
-  section: 'build',
-  mood: 'electric',
-  lyrics: '',
-  keywords: ['lagos', 'tonight', 'dance'],
-  timestamp: Date.now(),
-};
-
-export const mockCrowdSignal: CrowdSignal = { density: 0.6, movement: 0.5, timestamp: Date.now() };
-
-export function mockPlan(input?: Partial<DirectorInput>): ScenePlan {
-  return {
-    shaderId: 'example-bass-pulse',
-    palette: input?.theme?.palette ?? mockTheme.palette,
-    intensity: 0.7,
-    textureUrl: null,
-    transition: { type: 'fade', durationMs: 600 },
-    lyricWords: [],
-  };
-}
 
 const MOCK_ARCS: EnergyArc[] = ['build', 'peak', 'sustain', 'breakdown', 'release'];
 
@@ -52,16 +30,39 @@ function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
 }
 
-// Deterministic varied mock ShowPlan: rotates visuals without repeating,
-// reacts to summary events, sweeps params inside declared ranges.
+// Deterministic varied mock ShowPlan: never the current scene or the last
+// plan, prefers theme/energy metadata matches, rotates between equal
+// scores, reacts to summary events, sweeps params inside declared ranges.
 export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
   const ids = input.visualizers.length > 0 ? input.visualizers : [{ id: 'hex-core', params: [] }];
-  const recent = input.lastPlans.map((p) => p.visualId);
-  const pick = ids.map((v) => v.id).find((id) => {
-    const tail = [...recent.slice(-2), id];
-    return !(tail.length === 3 && tail[0] === id && tail[1] === id);
-  });
-  const visualId = pick ?? ids[cursor % ids.length].id;
+  const banned = new Set(
+    [input.current.visualId, ...input.lastPlans.map((p) => p.visualId)].filter(Boolean),
+  );
+  let pool = ids.filter((v) => !banned.has(v.id));
+  if (pool.length === 0) pool = [...ids]; // single-visualizer fallback
+  const words = [
+    input.theme?.genre ?? '',
+    input.theme?.mood ?? '',
+    ...(input.theme?.motifs ?? []),
+    ...(input.theme?.suggestedShaderIds ?? []),
+  ]
+    .join(' ')
+    .toLowerCase();
+  const energy = input.summary.avgEnergy;
+  const score = (v: (typeof ids)[number]): number => {
+    let s = 0;
+    if ((input.theme?.suggestedShaderIds ?? []).includes(v.id)) s += 3;
+    const meta = (v as VisualizerInfo).meta;
+    if (!meta) return s;
+    if (energy >= meta.energyRange[0] && energy <= meta.energyRange[1]) s += 1;
+    for (const tag of [...meta.themeTags, ...meta.moods]) {
+      if (tag && words.includes(tag.toLowerCase())) s += 2;
+    }
+    return s;
+  };
+  const best = Math.max(...pool.map(score));
+  const tops = pool.filter((v) => score(v) === best);
+  const visualId = tops[cursor % tops.length].id;
   const def = input.visualizers.find((v) => v.id === visualId);
   const events = input.summary.events;
   let arc: EnergyArc = MOCK_ARCS[cursor % MOCK_ARCS.length];
@@ -75,12 +76,7 @@ export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
     const mid = (range.min + range.max) / 2;
     return clamp(mid + ((range.max - range.min) / 2) * wobble(i), range.min, range.max);
   }) as [number, number, number];
-  const transition =
-    arc === 'peak'
-      ? { type: 'flash-cut' as const, durationMs: 150 }
-      : cursor % 3 === 2
-        ? { type: 'cut' as const, durationMs: 0 }
-        : { type: 'crossfade' as const, durationMs: 600 };
+  const transition = { type: 'crossfade' as const, durationMs: 1500 };
   const genre = input.theme?.genre ?? 'the mix';
   const mood = input.theme?.mood ?? 'electric';
   // M7: mock names a texture by energy tag when images exist, else null.

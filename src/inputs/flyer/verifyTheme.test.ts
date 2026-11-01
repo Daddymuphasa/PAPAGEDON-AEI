@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 import type { EventTheme } from '../../types';
 import { MAX_RETRIES, verifyThemePlain } from './verifyTheme';
 
-const IDS = ['example-bass-pulse', 'rings-two'];
+const IDS = ['hex-core', 'rings-two'];
 
 function validTheme(): EventTheme {
   return {
@@ -15,7 +15,7 @@ function validTheme(): EventTheme {
     typographyFeel: 'bold condensed glow',
     tempoBpm: { min: 95, max: 125 },
     sceneSwitchSeconds: { min: 4, max: 12 },
-    suggestedShaderIds: ['example-bass-pulse'],
+    suggestedShaderIds: ['hex-core'],
   };
 }
 
@@ -52,7 +52,7 @@ describe('verifyThemePlain', () => {
   });
 
   test('rejects unknown shader ids', () => {
-    const t = { ...validTheme(), suggestedShaderIds: ['example-bass-pulse', 'ghost-shader'] };
+    const t = { ...validTheme(), suggestedShaderIds: ['hex-core', 'ghost-shader'] };
     const r = verifyThemePlain(t, IDS);
     expect(r.ok).toBe(false);
     expect(r.errors).toContain('unknown shader id: ghost-shader');
@@ -94,5 +94,28 @@ describe('verifyThemePlain', () => {
 
   test('retry budget is 3', () => {
     expect(MAX_RETRIES).toBe(3);
+  });
+
+  test('validates against the catalog when no ids are passed', () => {
+    const t = { ...validTheme(), suggestedShaderIds: ['hex-core', 'neon-tunnel-3d'] };
+    expect(verifyThemePlain(t).ok).toBe(true);
+    const bad = { ...validTheme(), suggestedShaderIds: ['hex-core', 'ghost-shader'] };
+    const r = verifyThemePlain(bad);
+    expect(r.ok).toBe(false);
+    expect(r.errors).toContain('unknown shader id: ghost-shader');
+  });
+
+  test('accepts valid roles and rejects bad ones', () => {
+    const roles = {
+      background: '#07070c',
+      primary: '#ff2d78',
+      secondary: '#7b2dff',
+      accent: '#00e5ff',
+      highlight: '#ffd166',
+    };
+    expect(verifyThemePlain({ ...validTheme(), roles }, IDS).ok).toBe(true);
+    const bad = verifyThemePlain({ ...validTheme(), roles: { ...roles, primary: 'pink' } }, IDS);
+    expect(bad.ok).toBe(false);
+    expect(bad.errors).toContain('invalid hex colour in roles.primary: pink');
   });
 });

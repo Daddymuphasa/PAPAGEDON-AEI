@@ -42,12 +42,13 @@ describe('showLogic', () => {
     expect(mapThemeToOpening(theme, DEFS)).toBe('warp-tunnel');
   });
 
-  test('maps by name keyword when no id matches', () => {
+  test('ignores name keywords: unknown ids fall to an energy-matched scene', () => {
+    // mockTheme energy is 0.85; hex-core is the first catalog entry in range.
     const theme = { ...mockTheme, suggestedShaderIds: ['mega-tunnel-viz'] };
-    expect(mapThemeToOpening(theme, DEFS)).toBe('warp-tunnel');
+    expect(mapThemeToOpening(theme, DEFS)).toBe('hex-core');
   });
 
-  test('falls back to the first visualizer', () => {
+  test('falls back to the first visualizer without a theme', () => {
     const theme = { ...mockTheme, suggestedShaderIds: ['zzz-unknown'] };
     expect(mapThemeToOpening(theme, DEFS)).toBe('hex-core');
     expect(mapThemeToOpening(null, DEFS)).toBe('hex-core');

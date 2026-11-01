@@ -47,7 +47,7 @@ void main() {
   vec2 ar = vec2(u_resolution.x / u_resolution.y, 1.0);
   float t = u_time * u_speed;
   float gust = u_beat * (0.7 + 0.6 * u_p1);
-  vec3 col = mix(pal(0.05), pal(0.18), uv.y * (0.6 + 0.2 * u_energy));
+  vec3 col = mix(pal(0.02) * 0.3, pal(0.15) * 0.55, uv.y * (0.6 + 0.2 * u_energy));
   for (int i = 0; i < PETALS; i++) {
     float fi = float(i);
     float h1 = fract(sin(fi * 12.9898) * 43758.5453);
@@ -64,10 +64,10 @@ void main() {
     float cs = cos(rot);
     float sn = sin(rot);
     vec2 rp = mat2(cs, -sn, sn, cs) * d;
-    float petal = exp(-length(rp * vec2(28.0, 14.0)) * 1.6);
+    float petal = exp(-length(rp * vec2(20.0, 10.0)) * 1.6);
     float shade = 0.7 + 0.3 * sin(rot * 2.0 + h1 * 10.0);
     float near = smoothstep(1.1, 0.4, fall);
-    col = mix(col, pal(0.3 + 0.45 * h3) * shade, clamp(petal * (0.5 + 0.5 * near), 0.0, 0.85));
+    col = mix(col, pal(0.3 + 0.45 * h3) * shade * (0.85 + 0.4 * u_mid), clamp(petal * (0.6 + 0.5 * near), 0.0, 0.92));
   }
   col += pal(0.85) * u_high * 0.06 * u_p2;
   col += pal(0.5) * exp(-length((uv - 0.5) * ar) * 2.0) * 0.12 * (0.5 + 0.5 * u_bass) * u_p3;

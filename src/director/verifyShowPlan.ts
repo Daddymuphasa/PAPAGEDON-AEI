@@ -12,7 +12,7 @@ export const TRANSITION_MIN_MS = 0;
 export const TRANSITION_MAX_MS = 2000;
 export const SECTION_MIN_S = 10;
 export const SECTION_MAX_S = 60;
-export const MAX_REPEAT_VISUAL = 2;
+export const MAX_REPEAT_VISUAL = 1;
 
 export interface ShowVerifyResult {
   ok: boolean;
@@ -84,7 +84,7 @@ export function verifyShowPlan(
   }
   const tail = lastVisualIds.slice(-MAX_REPEAT_VISUAL);
   if (tail.length === MAX_REPEAT_VISUAL && tail.every((id) => id === p.visualId)) {
-    errors.push(`visual ${String(p.visualId)} would repeat more than twice in a row`);
+    errors.push(`visual ${String(p.visualId)} repeats the previous visual`);
   }
   return { ok: errors.length === 0, errors };
 }

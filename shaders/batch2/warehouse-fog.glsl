@@ -47,14 +47,14 @@ void main() {
   fog *= sin(uv.x * 9.0 - uv.y * 7.0 - t * 0.8) * 0.5 + 0.5;
 #endif
   fog = pow(fog, 1.5 - u_bass * 0.7);
-  vec3 col = mix(pal(0.02) * 0.25, pal(0.2 + 0.15 * u_energy), fog * (0.4 + 0.4 * u_bass));
+  vec3 col = mix(pal(0.02) * 0.3, pal(0.28 + 0.15 * u_energy) * (0.5 + 0.6 * fog), clamp(fog * (0.5 + 0.6 * u_bass), 0.0, 1.0));
   float slant = 0.35 + 0.2 * sin(t * 0.2);
   float sx = fract((uv.x + uv.y * slant) * (3.0 + u_p1 * 3.0) + t * 0.05);
-  float shaft = 1.0 - smoothstep(0.0, 0.22, abs(sx - 0.5) - 0.06);
-  float shaftGate = 0.25 + 0.75 * clamp(u_beat + u_pulse * 0.5, 0.0, 1.2);
-  col += pal(0.55 + 0.2 * u_mid) * shaft * shaftGate * (0.4 + 0.7 * fog) * u_p2;
+  float shaft = 1.0 - smoothstep(0.0, 0.3, abs(sx - 0.5) - 0.1);
+  float shaftGate = 0.5 + 0.75 * clamp(u_beat + u_pulse * 0.5, 0.0, 1.2);
+  col += pal(0.55 + 0.2 * u_mid) * shaft * shaftGate * (0.5 + 0.7 * fog) * u_p2;
   float floorGlow = exp(-abs(uv.y - 0.12) * 8.0);
-  col += pal(0.35) * floorGlow * (0.3 + 0.5 * u_bass);
+  col += pal(0.35) * floorGlow * (0.5 + 0.8 * u_bass);
   col += pal(0.9) * shaft * shaftGate * u_high * 0.4 * u_p3;
   col *= 0.35 + 0.65 * u_intensity;
   // Shared event-art layer: displaced sample over the shader look (no-op at mix 0).

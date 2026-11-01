@@ -47,7 +47,7 @@ void main() {
   vec2 uv = gl_FragCoord.xy / u_resolution;
   vec2 ar = vec2(u_resolution.x / u_resolution.y, 1.0);
   float t = u_time * u_speed;
-  vec3 col = mix(pal(0.04), pal(0.2), uv.y * (0.5 + 0.3 * u_energy));
+  vec3 col = mix(pal(0.02) * 0.3, pal(0.15) * 0.55, uv.y * (0.5 + 0.3 * u_energy));
   for (int i = 0; i < DOVES; i++) {
     float fi = float(i);
     float h1 = fract(sin(fi * 12.9898) * 43758.5453);
@@ -55,7 +55,7 @@ void main() {
     float h3 = fract(sin(fi * 39.425) * 9876.5432);
     float rise = fract(h1 + t * (0.03 + 0.05 * h2) * (0.6 + u_energy));
     vec2 dp = vec2(h2 * 0.9 + 0.05 + sin(t * 0.5 + h3 * 6.2831) * 0.03, 1.05 - rise * 1.15);
-    float size = (0.05 + 0.06 * h3) * (0.7 + 0.3 * u_p1);
+    float size = (0.07 + 0.09 * h3) * (0.7 + 0.3 * u_p1);
     vec2 d = (uv - dp) * ar / size;
     float flap = sin(t * (3.0 + 3.0 * h1) + h2 * 20.0 + u_beat * 2.0) * 0.35;
     float wingL = length(d - vec2(-0.55, flap * 0.4));
@@ -63,7 +63,7 @@ void main() {
     float body = length(d * vec2(1.0, 2.2));
     float dove = exp(-wingL * 3.5) + exp(-wingR * 3.5) + exp(-body * 4.5);
     float shade = 0.75 + 0.25 * h2;
-    col = mix(col, pal(0.85) * shade, clamp(dove * 0.85, 0.0, 0.9));
+    col = mix(col, pal(0.85) * shade, clamp(dove * 0.95, 0.0, 0.95));
     col += pal(0.95) * exp(-body * 6.0) * u_high * u_p2;
   }
   col += pal(0.6) * exp(-length((uv - 0.5) * ar) * 2.0) * 0.15 * (0.5 + 0.5 * u_bass) * u_p3;
