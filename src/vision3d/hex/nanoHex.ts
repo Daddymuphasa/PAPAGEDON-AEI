@@ -1,6 +1,6 @@
 // ── Nano-hex engine ─────────────────────────────────────────────────────────────
 // TypeScript port of PORTFOLIO- origin/main lib/vision/visualizers/nano-hex.js
-// (the live papagedon.com/app Vision mode): 1,073 instanced hex plates in five
+// (the live /app Vision mode): 1,073 instanced hex plates in five
 // layers, beat shockwaves, an under-glow floor, the electric overlay and the
 // sculptural harness. Fixed palettes — no theme/color input, per the approved
 // replication plan. Geometry, physics and signal math are verbatim.

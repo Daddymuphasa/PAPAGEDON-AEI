@@ -17,9 +17,10 @@ type Band = 'bass' | 'mid' | 'treble' | 'energy';
 const BANDS: Band[] = ['bass', 'mid', 'treble', 'energy'];
 
 // Learning rates per update (~60fps): floor learns down instantly (new quiet
-// is trusted at once), drifts up over ~8s; ceiling mirrors that upwards.
+// is trusted at once) and drifts up over ~8s; ceiling learns up instantly
+// and remembers loudness over ~15s so verses don't rescale the choruses.
 const FLOOR_RISE = 0.002;
-const CEIL_FALL = 0.005;
+const CEIL_FALL = 0.001;
 // Frames before the room counts as learned (~2s).
 const LEARN_FRAMES = 120;
 

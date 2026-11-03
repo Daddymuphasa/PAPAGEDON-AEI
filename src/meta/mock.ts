@@ -26,8 +26,20 @@ export const mockTheme: EventTheme = {
 
 const MOCK_ARCS: EnergyArc[] = ['build', 'peak', 'sustain', 'breakdown', 'release'];
 
+// Band-affinity keywords: the dominant summary band should match the scene.
+const BAND_WORDS: Record<'bass' | 'mid' | 'high', string[]> = {
+  bass: ['bass', 'kick', 'beat', 'pulse', 'drop', 'shockwave', 'pump', 'heave', 'sub', '808', 'boombox', 'portal', 'tunnel', 'seismic'],
+  mid: ['mid', 'groove', 'ribbon', 'silk', 'velvet', 'flow', 'wave', 'liquid', 'tide', 'garden', 'mist'],
+  high: ['treble', 'high', 'laser', 'crystal', 'prism', 'star', 'neon', 'sparkle', 'shimmer', 'lattice', 'candle', 'glass'],
+};
+
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
+}
+
+function packOf(visualId: string): string {
+  const i = visualId.indexOf('/');
+  return i >= 0 ? visualId.slice(0, i) : visualId;
 }
 
 // Deterministic varied mock ShowPlan: never the current scene or the last
@@ -49,22 +61,57 @@ export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
     .join(' ')
     .toLowerCase();
   const energy = input.summary.avgEnergy;
-  const score = (v: (typeof ids)[number]): number => {
-    let s = 0;
-    if ((input.theme?.suggestedShaderIds ?? []).includes(v.id)) s += 3;
-    const meta = (v as VisualizerInfo).meta;
-    if (!meta) return s;
-    if (energy >= meta.energyRange[0] && energy <= meta.energyRange[1]) s += 1;
-    for (const tag of [...meta.themeTags, ...meta.moods]) {
-      if (tag && words.includes(tag.toLowerCase())) s += 2;
-    }
-    return s;
-  };
-  const best = Math.max(...pool.map(score));
-  const tops = pool.filter((v) => score(v) === best);
-  const visualId = tops[cursor % tops.length].id;
-  const def = input.visualizers.find((v) => v.id === visualId);
   const events = input.summary.events;
+  const bandLevels = { bass: input.summary.avgBass, mid: input.summary.avgMid, high: input.summary.avgHigh };
+  const domBand = (Object.keys(bandLevels) as Array<keyof typeof bandLevels>).reduce((a, b) =>
+    bandLevels[a] >= bandLevels[b] ? a : b,
+  );
+  const dropEnergy =
+    (events.includes('drop') || events.includes('build')) &&
+    input.summary.peakEnergy - energy > 0.25;
+  const lastPacks = input.lastPlans.slice(-2).map((p) => packOf(p.visualId));
+  // Criteria, in fixed order: flyer pick, energy fit, tag/mood hits, band
+  // fit, drop-energy, variety guard. The winner's matches land in reason.
+  const score = (v: (typeof ids)[number]): { total: number; why: string[] } => {
+    let s = 0;
+    const why: string[] = [];
+    if ((input.theme?.suggestedShaderIds ?? []).includes(v.id)) {
+      s += 3;
+      why.push('flyer pick');
+    }
+    if (lastPacks.length === 2 && lastPacks[0] === lastPacks[1] && lastPacks[0] === packOf(v.id)) {
+      s -= 2;
+    }
+    const meta = (v as VisualizerInfo).meta;
+    if (!meta) return { total: s, why };
+    if (energy >= meta.energyRange[0] && energy <= meta.energyRange[1]) {
+      s += 1;
+      why.push('energy match');
+    }
+    const hits = [...meta.themeTags, ...meta.moods].filter(
+      (tag) => tag && words.includes(tag.toLowerCase()),
+    );
+    if (hits.length > 0) {
+      s += 2 * hits.length;
+      why.push(`tags: ${hits.slice(0, 2).join(', ')}`);
+    }
+    const hay = `${v.id} ${[...meta.themeTags, ...meta.moods].join(' ')}`.toLowerCase();
+    if (BAND_WORDS[domBand].some((w) => hay.includes(w))) {
+      s += 2;
+      why.push(`${domBand}-led`);
+    }
+    if (dropEnergy && meta.energyRange[1] >= 0.9) {
+      s += 2;
+      why.push('drop-energy');
+    }
+    return { total: s, why };
+  };
+  const scored = pool.map((v) => ({ v, ...score(v) }));
+  const best = Math.max(...scored.map((x) => x.total));
+  const tops = scored.filter((x) => x.total === best);
+  const winner = tops[cursor % tops.length];
+  const visualId = winner.v.id;
+  const def = input.visualizers.find((v) => v.id === visualId);
   let arc: EnergyArc = MOCK_ARCS[cursor % MOCK_ARCS.length];
   if (events.includes('drop')) arc = 'peak';
   else if (events.includes('breakdown')) arc = 'breakdown';
@@ -79,18 +126,22 @@ export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
   const transition = { type: 'crossfade' as const, durationMs: 1500 };
   const genre = input.theme?.genre ?? 'the mix';
   const mood = input.theme?.mood ?? 'electric';
+  const bpm = input.summary.bpm;
+  const speed =
+    bpm > 0 ? clamp(bpm / 120, 0.5, 2) : clamp(0.8 + (cursor % 5) * 0.1 + (arc === 'breakdown' ? -0.3 : 0), 0, 2);
+  const sections = energy >= 0.75 ? [12, 16, 20] : energy <= 0.35 ? [30, 40, 50] : [20, 30, 40];
   // M7: mock names a texture by energy tag when images exist, else null.
   const tex = pickTextureForPlan(undefined, undefined, input.textures ?? [], arc);
   return {
     visualId,
     params,
     intensity: clamp(0.45 + input.summary.avgEnergy * 0.5 + (arc === 'peak' ? 0.15 : 0), 0, 1),
-    speed: clamp(0.8 + (cursor % 5) * 0.1 + (arc === 'breakdown' ? -0.3 : 0), 0, 2),
+    speed,
     paletteEmphasis: cursor % 4,
     transition,
     energyArc: arc,
-    sectionSeconds: [20, 30, 40][cursor % 3],
-    reason: `Mock ${arc} scene on ${visualId} for ${mood} ${genre}`,
+    sectionSeconds: sections[cursor % 3],
+    reason: `Mock ${arc} scene on ${visualId} for ${mood} ${genre} — ${winner.why.join('; ') || 'rotation'}`,
     texture: tex.id,
     texMix: tex.texMix,
   };

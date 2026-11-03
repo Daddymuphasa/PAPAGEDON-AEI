@@ -1,6 +1,6 @@
 // ── Hex variant packs ─────────────────────────────────────────────────────────
 // TypeScript port of PORTFOLIO- origin/main lib/vision/visualizers/packs.js
-// (the live papagedon.com/app Vision mode). Only the packs behind the nine
+// (the live /app Vision mode). Only the packs behind the nine
 // originals are ported: the seven surface variants plus the two sculptural
 // defs (liquid-mirror, wave-tunnel). Numbers are verbatim from the original.
 import * as THREE from 'three';

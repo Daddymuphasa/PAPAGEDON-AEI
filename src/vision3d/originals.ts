@@ -1,7 +1,7 @@
 // ── Originals registry ──────────────────────────────────────────────────────
 // The nine original PAPAGEDON visualizers plus the four immersive 3D scenes,
 // ported from PORTFOLIO- origin/main (lib/vision/visualizers/*, the live
-// papagedon.com/app Vision mode).
+// /app Vision mode).
 // Import-safe by design: plain data only, so client pages and vitest share it.
 // Fixed palettes: these scenes take NO theme/color input (per the approved
 // replication plan) — geometry, motion and audio response are ported 1:1,

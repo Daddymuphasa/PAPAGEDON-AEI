@@ -5,6 +5,7 @@ import { MUSE_IMAGE_MODEL } from '../../../../meta/metaClient';
 import { mockUsage, takeLastUsage } from '../../../../meta/usage';
 import { tagsForCount } from '../../../../visuals/prompts';
 import type { EnergyTag, EventTheme } from '../../../../types';
+import { apiError } from '../../apiError';
 
 // M7: theme -> event-styled artwork. Key stays server-side; the browser
 // only sees data URLs. Usage counts every image call for the credit guard.
@@ -25,9 +26,6 @@ export async function POST(req: Request) {
     res.headers.set('x-aei-usage', JSON.stringify(takeLastUsage() ?? mockUsage()));
     return res;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'generation failed' },
-      { status: 502 },
-    );
+    return apiError(err);
   }
 }

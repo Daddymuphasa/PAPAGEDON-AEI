@@ -1,6 +1,6 @@
 // ── Electric network overlay ──────────────────────────────────────────────────
 // TypeScript port of PORTFOLIO- origin/main lib/vision/visualizers/electric-
-// network.js (the live papagedon.com/app Vision mode). A lightning grid over
+// network.js (the live /app Vision mode). A lightning grid over
 // the hex field: beat impacts surge through a node graph (shortest-path from
 // the impact point) and light links, junctions and spark bolts. Only visible
 // for the electric-nexus pack. Math is verbatim from the original.

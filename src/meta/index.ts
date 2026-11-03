@@ -282,6 +282,12 @@ export async function planShow(input: PlannerInput, feedback?: PlanFeedback): Pr
       (input.visualizers.some((v) => v.meta !== undefined)
         ? ' Each visualizer carries meta (themeTags, an energyRange sweet spot, moods): prefer scenes whose energyRange contains the current energy and whose tags/moods match the theme genre/mood/motifs; save out-of-range scenes for matching moments.'
         : '') +
+      ' Score scenes by fixed criteria, in order: (1) theme fit — suggested ids and tag/mood matches; ' +
+      '(2) energy fit — current energy inside energyRange, and on drops/builds prefer ranges reaching 0.9 or higher; ' +
+      '(3) band fit — the dominant summary band (bass/mid/high) should match the scene (bass scenes for kick drops, sparkling scenes for high-led passages); ' +
+      '(4) variety — never run the same pack three scenes in a row; ' +
+      '(5) match speed to bpm (about bpm/120) and shorten sections when energy is high. ' +
+      'Cite the matched criteria in reason (for example "peak scene on Trance 20 for electric Techno — energy match; tags: neon, laser; drop-energy").' +
       (feedback
         ? ` Fix exactly these errors in the previous plan and keep everything else: ${feedback.errors.join('; ')}.`
         : '');

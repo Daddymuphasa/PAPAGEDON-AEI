@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateShaderSource } from '../../../../meta/shader';
 import { mockUsage, takeLastUsage } from '../../../../meta/usage';
+import { apiError } from '../../apiError';
 import type { EventTheme } from '../../../../types';
 import type { ShaderBrief, ShaderFeedback } from '../../../../visuals/shaderContract';
 
@@ -19,9 +20,6 @@ export async function POST(req: Request) {
     res.headers.set('x-aei-usage', JSON.stringify(takeLastUsage() ?? mockUsage()));
     return res;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'generation failed' },
-      { status: 502 },
-    );
+    return apiError(err);
   }
 }

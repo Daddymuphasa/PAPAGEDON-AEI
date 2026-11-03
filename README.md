@@ -2,11 +2,13 @@
 
 ## Provenance (read this first)
 
-The PAPAGEDON visual engine, the `/app` experience UI, and the six core
-shader packs pre-date this hackathon entry — earlier work by Daddy MUPHASA.
+The PAPAGEDON visual engine, the `/app` experience UI, the six core
+shader packs, and the 13 three.js originals (faithful ports of the `/app`
+Vision originals, adapted to AEI's signals with fixed palettes) pre-date
+this hackathon entry — earlier work by Daddy MUPHASA, never claimed as new.
 The new hackathon work is the Meta integration: Muse Spark visual director
 plus Spark-authored visualizers, Muse Image event artwork, and SAM 3.1 crowd
-vision — plus the director bridge, 13 original shaders, verification, launchers, and docs in
+vision — plus the director bridge, verification, launchers, and docs in
 this repo.
 
 ## What it is

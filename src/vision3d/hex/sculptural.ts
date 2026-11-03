@@ -1,7 +1,7 @@
 // ── Sculptural scenes ─────────────────────────────────────────────────────────
 // TypeScript port of the createSculpturalModes harness plus the liquid + tunnel
 // builders from PORTFOLIO- origin/main lib/vision/visualizers/sculptural-
-// modes.js (the live papagedon.com/app Vision mode). Only the two sculptural
+// modes.js (the live /app Vision mode). Only the two sculptural
 // originals are ported (Liquid Mirror, Wave Tunnel); the other eight modes
 // are out of scope. Geometry and motion math are verbatim from the original.
 import * as THREE from 'three';

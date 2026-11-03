@@ -176,4 +176,83 @@ describe('mockShowPlan (Batch-5 rules)', () => {
     expect(VIZ.map((v) => v.id)).toContain(p.visualId);
     expect(p.transition).toEqual({ type: 'crossfade', durationMs: 1500 });
   });
+
+  test('dominant band breaks ties toward matching scenes', () => {
+    const viz: VisualizerInfo[] = [
+      { id: 'x-bass', name: 'X Bass', tags: [], params: P3, meta: { themeTags: ['kick'], energyRange: [0, 1], moods: ['heavy'] } },
+      { id: 'x-calm', name: 'X Calm', tags: [], params: P3, meta: { themeTags: ['doves'], energyRange: [0, 1], moods: ['gentle'] } },
+    ];
+    const in2 = input({
+      theme: null,
+      current: { visualId: 'zzz', params: [0.5, 0.5, 0.5], intensity: 0.7, speed: 1, paletteEmphasis: 0 },
+      lastPlans: [],
+      visualizers: viz,
+      summary: { ...input().summary, avgEnergy: 0.5, avgBass: 0.9, avgMid: 0.2, avgHigh: 0.1 },
+    });
+    const p = mockShowPlan(in2, 0);
+    expect(p.visualId).toBe('x-bass');
+    expect(p.reason).toContain('bass-led');
+  });
+
+  test('variety guard avoids a third same-pack scene in a row', () => {
+    const viz: VisualizerInfo[] = [
+      { id: 'Pack/x', name: 'PX', tags: [], params: P3 },
+      { id: 'Pack/y', name: 'PY', tags: [], params: P3 },
+      { id: 'Other/z', name: 'OZ', tags: [], params: P3 },
+    ];
+    const in2 = input({
+      theme: null,
+      current: { visualId: 'zzz', params: [0.5, 0.5, 0.5], intensity: 0.7, speed: 1, paletteEmphasis: 0 },
+      lastPlans: [plan('Pack/x'), plan('Pack/y')],
+      visualizers: viz,
+    });
+    expect(mockShowPlan(in2, 0).visualId).toBe('Other/z');
+  });
+
+  test('speed follows bpm, sections follow energy', () => {
+    const fast = mockShowPlan(input({ summary: { ...input().summary, bpm: 150 } }), 0);
+    expect(fast.speed).toBeCloseTo(1.25);
+    const hot = mockShowPlan(input({ summary: { ...input().summary, avgEnergy: 0.9 } }), 0);
+    expect([12, 16, 20]).toContain(hot.sectionSeconds);
+    const cool = mockShowPlan(input({ summary: { ...input().summary, avgEnergy: 0.1 } }), 1);
+    expect([30, 40, 50]).toContain(cool.sectionSeconds);
+  });
+
+  test('drop-energy favours peak-range scenes on drops', () => {
+    const dropEvents: PlannerInput['summary']['events'] = ['drop'];
+    const viz: VisualizerInfo[] = [
+      { id: 'x-peak', name: 'X Peak', tags: [], params: P3, meta: { themeTags: ['zzz'], energyRange: [0.7, 1], moods: ['zzz'] } },
+      { id: 'x-mid', name: 'X Mid', tags: [], params: P3, meta: { themeTags: ['zzz'], energyRange: [0.3, 0.7], moods: ['zzz'] } },
+    ];
+    const in2 = input({
+      theme: null,
+      current: { visualId: 'zzz', params: [0.5, 0.5, 0.5], intensity: 0.7, speed: 1, paletteEmphasis: 0 },
+      lastPlans: [],
+      visualizers: viz,
+      summary: { ...input().summary, avgEnergy: 0.6, peakEnergy: 0.95, events: dropEvents },
+    });
+    const p = mockShowPlan(in2, 0);
+    expect(p.visualId).toBe('x-peak');
+    expect(p.energyArc).toBe('peak');
+    expect(p.reason).toContain('drop-energy');
+  });
+
+  test('reason cites the matched criteria', () => {
+    const tagged = mockShowPlan(input({ lastPlans: [plan('zzz')] }), 0);
+    expect(tagged.reason).toContain('tags:');
+    const theme2 = {
+      ...input().theme!,
+      genre: 'X',
+      mood: 'Y',
+      motifs: ['neon'],
+      suggestedShaderIds: ['b-calm'],
+    };
+    const in2 = input({
+      theme: theme2,
+      current: { visualId: 'zzz', params: [0.5, 0.5, 0.5], intensity: 0.7, speed: 1, paletteEmphasis: 0 },
+      lastPlans: [],
+      summary: { ...input().summary, avgEnergy: 0.2 },
+    });
+    expect(mockShowPlan(in2, 0).reason).toContain('flyer pick');
+  });
 });

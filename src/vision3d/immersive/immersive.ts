@@ -1,6 +1,6 @@
 // ── Immersive 3D scenes ─────────────────────────────────────────────────────────
 // TypeScript port of PORTFOLIO- origin/main lib/vision/visualizers/immersive3d.ts
-// (the live papagedon.com/app Vision mode, N/G/R/L): four real Three.js scenes
+// (the live /app Vision mode, N/G/R/L): four real Three.js scenes
 // with depth, moving cameras, fog, particles and UnrealBloom. Geometry, motion
 // and signal math are verbatim; palettes are fixed (no color reactivity).
 import * as THREE from 'three';

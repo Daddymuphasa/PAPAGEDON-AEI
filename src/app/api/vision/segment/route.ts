@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { SAM_MODEL, segmentFrame } from '../../../../meta/sam';
 import { isLive } from '../../../../meta/config';
 import { mockUsage, takeLastUsage } from '../../../../meta/usage';
+import { apiError } from '../../apiError';
 
 // M8: camera frame -> performer/crowd boxes + low-res masks + counts.
 // The key stays server-side; usage counts every SAM call for the guard.
@@ -26,9 +27,6 @@ export async function POST(req: Request) {
     res.headers.set('x-aei-usage', JSON.stringify(takeLastUsage() ?? mockUsage()));
     return res;
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'segmentation failed' },
-      { status: 502 },
-    );
+    return apiError(err);
   }
 }
