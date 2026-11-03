@@ -13,6 +13,7 @@ import { getDecisions, subscribeDecisions, type DecisionEntry } from '@/director
 import type { DirectorView } from '@/director/showDirector';
 import type { EnergyTag } from '@/types';
 import { CATALOG } from '../../../shaders/catalog';
+import { ORIGINALS } from '@/vision3d/originals';
 
 export interface PanelImage {
   id: string;
@@ -29,6 +30,8 @@ export interface DirectorControl {
   samStatus: string;
   diag: { running: boolean; checked: number; total: number; failures: string[] } | null;
   onCompileAll: () => void;
+  diag3d: { running: boolean; checked: number; total: number; failures: string[] } | null;
+  onCheck3D: () => void;
   shaderBusy: boolean;
   shaderStatus: string | null;
   generatedCount: number;
@@ -234,6 +237,25 @@ export default function DirectorPanel({ control }: { control: DirectorControl })
         {control.diag && control.diag.failures.length > 0 && (
           <ol className="mt-1 grid gap-1 text-[11px] text-red-300">
             {control.diag.failures.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ol>
+        )}
+      </section>
+
+      <section className="pg-panel">
+        <div className="pg-label mb-2">3D check</div>
+        <button className="pg-btn w-full justify-center" disabled={control.diag3d?.running} onClick={control.onCheck3D}>
+          {control.diag3d?.running ? `Checking ${control.diag3d.checked}/${control.diag3d.total}…` : `Check all ${ORIGINALS.length} originals`}
+        </button>
+        {control.diag3d && !control.diag3d.running && control.diag3d.failures.length === 0 && control.diag3d.checked > 0 && (
+          <p className="mt-1 text-[11px] text-accent">
+            {control.diag3d.checked}/{control.diag3d.total} originals clean
+          </p>
+        )}
+        {control.diag3d && control.diag3d.failures.length > 0 && (
+          <ol className="mt-1 grid gap-1 text-[11px] text-red-300">
+            {control.diag3d.failures.map((f) => (
               <li key={f}>{f}</li>
             ))}
           </ol>

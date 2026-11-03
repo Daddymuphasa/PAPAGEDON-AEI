@@ -34,14 +34,22 @@ import { VisionTickState } from "@/vision/client";
 import { shouldSampleCrowd } from "@/inputs/crowd/crowdSignal";
 import { verifyTrackMap } from "@/director/trackMap";
 import type { EventTheme, TrackMap } from "@/types";
+import { ORIGINALS, ORIGINALS_PACK, ORIGINAL_DEFS, originalEntry, originalIdFromFile } from "@/vision3d/originals";
+import { adaptSignals, createBeatHold } from "@/vision3d/adapter";
+import { createNanoHexVisualizer, type NanoHexVisualizer } from "@/vision3d/hex/nanoHex";
 
 const DEMO_CYCLE_SECONDS = 20; // PAPAGEDON_DEMO_CYCLE in Runtime.cpp
 
 const themeById = (id: string | null | undefined): ThemeDef | undefined => catalog.themes.find((t) => t.id === id);
 const defaultPack = catalog.packs.find((p) => p.id === "SignaturePack") ?? catalog.packs[0];
+// GLSL packs plus the three.js originals (kept out of catalog.json/CATALOG,
+// which stay 1:1 with the 86 on-disk shaders per catalog.test.ts).
+const ALL_PACKS: PackDef[] = [...catalog.packs, ORIGINALS_PACK];
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 function locateVisual(visualId: string): { pack: PackDef; index: number } | null {
-  for (const p of catalog.packs) {
+  for (const p of ALL_PACKS) {
     const index = p.shaders.findIndex((s) => s.id === visualId);
     if (index >= 0) return { pack: p, index };
   }
@@ -101,6 +109,11 @@ function PapagedonStage() {
   const visionRef = useRef(new VisionTickState());
   const lastSamRef = useRef(0);
   const generatedRef = useRef(new Map<string, string>());
+  const canvas3DRef = useRef<HTMLCanvasElement>(null);
+  const viz3DRef = useRef<NanoHexVisualizer | null>(null);
+  const viz3DVariantRef = useRef<string | null>(null);
+  const viz3DErrorRef = useRef<string | null>(null);
+  const beatHoldRef = useRef(createBeatHold());
   const packRef = useRef<PackDef>(defaultPack);
   const shaderIndexRef = useRef(0);
   const generatedIdRef = useRef<string | null>(null);
@@ -145,6 +158,7 @@ function PapagedonStage() {
   const [generatedId, setGeneratedId] = useState<string | null>(null);
   const [samStatus, setSamStatus] = useState("crowd camera off");
   const [diag, setDiag] = useState<{ running: boolean; checked: number; total: number; failures: string[] } | null>(null);
+  const [diag3d, setDiag3d] = useState<{ running: boolean; checked: number; total: number; failures: string[] } | null>(null);
   const [blackout, setBlackout] = useState(false);
 
   const shader = pack.shaders[Math.min(shaderIndex, pack.shaders.length - 1)];
@@ -197,21 +211,30 @@ function PapagedonStage() {
       }
       // The visual layer renders the same live engine signals the HUD meters
       // read — no attenuation — so the stage reacts exactly like live /app.
-      const front = frontIsARef.current ? ra! : rb!;
-      const back = frontIsARef.current ? rb! : ra!;
-      front.render(signals, graph, dt);
-      const xf = xfadeRef.current;
-      if (xf) {
-        const k = Math.min(1, (now - xf.t0) / xf.ms);
-        back.render(signals, graph, dt);
-        const backCanvas = frontIsARef.current ? canvasB : canvasA;
-        backCanvas.style.opacity = String(k);
-        if (k >= 1) {
-          frontIsARef.current = !frontIsARef.current;
-          const oldFront = frontIsARef.current ? canvasB : canvasA;
-          oldFront.style.opacity = "0";
-          backCanvas.style.opacity = "1";
-          xfadeRef.current = null;
+      const selPack = packRef.current;
+      const selShader = selPack.shaders[Math.min(shaderIndexRef.current, selPack.shaders.length - 1)];
+      const originalId = selShader ? originalIdFromFile(selShader.file) : null;
+      const canvas3D = canvas3DRef.current;
+      if (originalId && canvas3D) {
+        driveOriginals(originalId, signals, canvas3D, canvasA, canvasB);
+      } else {
+        if (canvas3D) canvas3D.style.opacity = "0";
+        const front = frontIsARef.current ? ra! : rb!;
+        const back = frontIsARef.current ? rb! : ra!;
+        front.render(signals, graph, dt);
+        const xf = xfadeRef.current;
+        if (xf) {
+          const k = Math.min(1, (now - xf.t0) / xf.ms);
+          back.render(signals, graph, dt);
+          const backCanvas = frontIsARef.current ? canvasB : canvasA;
+          backCanvas.style.opacity = String(k);
+          if (k >= 1) {
+            frontIsARef.current = !frontIsARef.current;
+            const oldFront = frontIsARef.current ? canvasB : canvasA;
+            oldFront.style.opacity = "0";
+            backCanvas.style.opacity = "1";
+            xfadeRef.current = null;
+          }
         }
       }
       if (now - lastHud > 100) {
@@ -229,6 +252,9 @@ function PapagedonStage() {
       rb?.dispose();
       rendererRef.current = null;
       rendererBRef.current = null;
+      viz3DRef.current?.dispose();
+      viz3DRef.current = null;
+      viz3DVariantRef.current = null;
     };
   }, []);
 
@@ -237,6 +263,7 @@ function PapagedonStage() {
     if (generatedId) return; // a generated shader owns the stage
     const r = rendererRef.current;
     if (!r || !shader) return;
+    if (originalIdFromFile(shader.file)) return; // three.js originals render in the loop
     let cancelled = false;
     (async () => {
       let src = shaderCache.current.get(shader.file);
@@ -282,7 +309,7 @@ function PapagedonStage() {
   }, [theme, glError]);
 
   const choosePack = (id: string) => {
-    const p = catalog.packs.find((x) => x.id === id);
+    const p = ALL_PACKS.find((x) => x.id === id);
     if (!p) return;
     setPack(p);
     setShaderIndex(0);
@@ -538,7 +565,7 @@ function PapagedonStage() {
       },
     }));
     const d = new ShowDirector({
-      defs: [...ENGINE_DEFS, ...generated],
+      defs: [...ENGINE_DEFS, ...ORIGINAL_DEFS, ...generated],
       getTheme: () => themeRef.current,
       onScene: handleSceneEvent,
       onUpdate: (v) => setDirectorView(v),
@@ -617,6 +644,41 @@ function PapagedonStage() {
   }, [step]);
 
   // ── Director stage helpers ──
+  // Lazily owns the nano-hex visualizer: creates it on first need, switches
+  // variant on selection change, and renders adapted live signals each frame.
+  // Fixed palettes — themes never touch this path (no color reactivity).
+  const driveOriginals = (
+    originalId: string,
+    signals: ExperienceSignals,
+    canvas3D: HTMLCanvasElement,
+    canvasA: HTMLCanvasElement,
+    canvasB: HTMLCanvasElement,
+  ) => {
+    try {
+      viz3DRef.current ??= createNanoHexVisualizer(canvas3D);
+      const entry = originalEntry(originalId);
+      if (entry && viz3DVariantRef.current !== entry.variantId) {
+        viz3DRef.current.setVariant(entry.variantId);
+        viz3DVariantRef.current = entry.variantId;
+      }
+      viz3DRef.current.render(adaptSignals(signals, beatHoldRef.current));
+      if (viz3DErrorRef.current) {
+        viz3DErrorRef.current = null;
+        setShaderError(null);
+      }
+    } catch (e) {
+      const msg = `Originals 3D: ${e instanceof Error ? e.message : String(e)}`;
+      if (viz3DErrorRef.current !== msg) {
+        viz3DErrorRef.current = msg;
+        setShaderError(msg);
+      }
+      return;
+    }
+    canvas3D.style.opacity = "1";
+    canvasA.style.opacity = "0";
+    canvasB.style.opacity = "0";
+  };
+
   const compileToBack = (name: string, src: string, transition: { type: string; durationMs: number }) => {
     const back = frontIsARef.current ? rendererBRef.current : rendererRef.current;
     if (!back) return;
@@ -823,6 +885,53 @@ function PapagedonStage() {
     });
   };
 
+  // three.js verifies only in a browser: build every original, render frames
+  // with synthetic signals (one beat frame to fire the impact path), and
+  // report per-original failures. Gaps between renders beat the frame throttle.
+  const check3D = async () => {
+    setDiag3d({ running: true, checked: 0, total: ORIGINALS.length, failures: [] });
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 240;
+    let viz: NanoHexVisualizer | null = null;
+    try {
+      viz = createNanoHexVisualizer(canvas);
+    } catch {
+      viz = null;
+    }
+    if (!viz) {
+      setDiag3d({ running: false, checked: 0, total: ORIGINALS.length, failures: ["WebGL unavailable for the 3D check"] });
+      return;
+    }
+    const failures: string[] = [];
+    let checked = 0;
+    const hold = createBeatHold();
+    for (const e of ORIGINALS) {
+      try {
+        viz.setVariant(e.variantId);
+        for (let f = 0; f < 3; f += 1) {
+          viz.render(adaptSignals({ ...emptySignals(), energy: 0.7, bass: 0.8, mid: 0.5, treble: 0.4, beat: f === 1 }, hold));
+          await sleep(45);
+        }
+      } catch (err) {
+        failures.push(`${e.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      checked += 1;
+      setDiag3d({ running: true, checked, total: ORIGINALS.length, failures: [...failures] });
+    }
+    viz.dispose();
+    setDiag3d({ running: false, checked, total: ORIGINALS.length, failures });
+    logDecision({
+      step: "verify",
+      model: "local",
+      input: `3d check (${ORIGINALS.length})`,
+      result: failures.length === 0 ? "all clean" : `${failures.length} failed`,
+      verify: failures.length === 0 ? { pass: true, reason: "all clean" } : { pass: false, reason: failures[0] },
+      retries: 0,
+      latencyMs: null,
+    });
+  };
+
   const { s, g } = hud;
   const textureImg = textureLayer ? images.find((i) => i.id === textureLayer.id && i.enabled) : undefined;
 
@@ -843,6 +952,7 @@ function PapagedonStage() {
     >
       <canvas ref={canvasRef} className="pgx-stage" />
       <canvas ref={canvasBRef} className="pgx-stage" style={{ opacity: 0 }} />
+      <canvas ref={canvas3DRef} className="pgx-stage" style={{ opacity: 0 }} />
       {textureImg && textureLayer && (
         <div
           aria-hidden="true"
@@ -932,9 +1042,9 @@ function PapagedonStage() {
             </section>
 
             <section className="pg-panel">
-              <div className="pg-label mb-2">Visuals · engine shader packs</div>
+              <div className="pg-label mb-2">Visuals · packs</div>
               <select className="pg-select" value={pack.id} onChange={(e) => choosePack(e.target.value)}>
-                {catalog.packs.map((p) => (
+                {ALL_PACKS.map((p) => (
                   <option key={p.id} value={p.id}>{p.name} ({p.shaders.length})</option>
                 ))}
               </select>
@@ -1009,6 +1119,8 @@ function PapagedonStage() {
                 samStatus,
                 diag,
                 onCompileAll: compileAll,
+                diag3d,
+                onCheck3D: check3D,
                 shaderBusy,
                 shaderStatus,
                 generatedCount,
