@@ -1,6 +1,7 @@
 // ── Originals registry ──────────────────────────────────────────────────────
-// The nine original PAPAGEDON visualizers, ported from PORTFOLIO- origin/main
-// (lib/vision/visualizers/*, the live papagedon.com/app Vision mode).
+// The nine original PAPAGEDON visualizers plus the four immersive 3D scenes,
+// ported from PORTFOLIO- origin/main (lib/vision/visualizers/*, the live
+// papagedon.com/app Vision mode).
 // Import-safe by design: plain data only, so client pages and vitest share it.
 // Fixed palettes: these scenes take NO theme/color input (per the approved
 // replication plan) — geometry, motion and audio response are ported 1:1,
@@ -9,7 +10,7 @@ import type { PackDef, ShaderDef } from '../lib/papagedon/catalog';
 import type { DirectorVisual } from '../director/showDirector';
 import { ENGINE_PARAMS } from '../director/engineDefs';
 
-export type OriginalKind = 'surface' | 'sculptural';
+export type OriginalKind = 'surface' | 'sculptural' | 'immersive';
 
 export interface OriginalEntry {
   /** Stage id, e.g. 'Originals/nano-hex'. */
@@ -39,14 +40,18 @@ function o(
 
 export const ORIGINALS: OriginalEntry[] = [
   o('liquid-mirror', 'Liquid Mirror', 'sculptural', 0, ['original', 'liquid', 'vision', 'three'], [0, 0.45], ['flowing', 'liquid', 'calm']),
-  o('wave-tunnel', 'Wave Tunnel', 'sculptural', 1, ['original', 'tunnel', 'vision', 'three'], [0, 0.45], ['drifting', 'deep', 'calm']),
-  o('obsidian-bloom', 'Obsidian Bloom', 'surface', 2, ['original', 'hex', 'vision', 'three'], [0.25, 0.75], ['unfolding', 'dark', 'elegant']),
-  o('nano-hex', 'Nano Hex Genesis', 'surface', 3, ['original', 'hex', 'vision', 'three'], [0.25, 0.75], ['monumental', 'mechanical', 'driving']),
-  o('armor-scales', 'Armor Scales', 'surface', 4, ['original', 'hex', 'vision', 'three'], [0.25, 0.75], ['armored', 'faceted', 'driving']),
-  o('prism-shards', 'Prism Shards', 'surface', 5, ['original', 'hex', 'vision', 'three'], [0.5, 1], ['crystalline', 'sharp', 'bright']),
-  o('circuit-matrix', 'Circuit Matrix', 'surface', 6, ['original', 'hex', 'vision', 'three'], [0.5, 1], ['digital', 'coded', 'driving']),
-  o('gilded-reactor', 'Gilded Reactor', 'surface', 7, ['original', 'hex', 'vision', 'three'], [0.5, 1], ['golden', 'reactor', 'peak']),
-  o('electric-nexus', 'Electric Nexus', 'surface', 8, ['original', 'hex', 'vision', 'three'], [0.7, 1], ['electric', 'storming', 'peak']),
+  o('wave-tunnel', 'Wave Tunnel', 'sculptural', 2, ['original', 'tunnel', 'vision', 'three'], [0, 0.45], ['drifting', 'deep', 'calm']),
+  o('obsidian-bloom', 'Obsidian Bloom', 'surface', 3, ['original', 'hex', 'vision', 'three'], [0.25, 0.75], ['unfolding', 'dark', 'elegant']),
+  o('nano-hex', 'Nano Hex Genesis', 'surface', 5, ['original', 'hex', 'vision', 'three'], [0.25, 0.75], ['monumental', 'mechanical', 'driving']),
+  o('armor-scales', 'Armor Scales', 'surface', 6, ['original', 'hex', 'vision', 'three'], [0.25, 0.75], ['armored', 'faceted', 'driving']),
+  o('prism-shards', 'Prism Shards', 'surface', 8, ['original', 'hex', 'vision', 'three'], [0.5, 1], ['crystalline', 'sharp', 'bright']),
+  o('circuit-matrix', 'Circuit Matrix', 'surface', 9, ['original', 'hex', 'vision', 'three'], [0.5, 1], ['digital', 'coded', 'driving']),
+  o('gilded-reactor', 'Gilded Reactor', 'surface', 11, ['original', 'hex', 'vision', 'three'], [0.5, 1], ['golden', 'reactor', 'peak']),
+  o('electric-nexus', 'Electric Nexus', 'surface', 12, ['original', 'hex', 'vision', 'three'], [0.7, 1], ['electric', 'storming', 'peak']),
+  o('neon-tunnel', 'Neon Tunnel 3D', 'immersive', 10, ['original', 'tunnel', 'vision', 'three'], [0.7, 1], ['rushing', 'neon', 'peak']),
+  o('particle-galaxy', 'Particle Galaxy 3D', 'immersive', 4, ['original', 'galaxy', 'vision', 'three'], [0.25, 0.75], ['cosmic', 'drifting', 'vast']),
+  o('audio-terrain', 'Audio Terrain 3D', 'immersive', 7, ['original', 'terrain', 'vision', 'three'], [0.5, 1], ['synthwave', 'driving', 'vast']),
+  o('light-cathedral', 'Light Cathedral 3D', 'immersive', 1, ['original', 'cathedral', 'vision', 'three'], [0, 0.45], ['sacred', 'luminous', 'calm']),
 ];
 
 export const ORIGINAL_IDS: string[] = ORIGINALS.map((e) => e.id);
@@ -66,7 +71,7 @@ export function originalIdFromFile(file: string): string | null {
 }
 
 // ── Stage pack (composed with catalog.packs in the UI; NOT in catalog.json,
-// which stays 1:1 with the 86-shader GLSL CATALOG per catalog.test.ts) ─────────
+// which stays 1:1 with the 74-shader GLSL CATALOG per catalog.test.ts) ─────────
 const SOURCE = 'PORTFOLIO- origin/main lib/vision/visualizers (Vision mode)';
 
 export const ORIGINALS_PACK: PackDef = {

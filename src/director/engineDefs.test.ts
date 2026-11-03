@@ -5,7 +5,7 @@ import { ENGINE_DEFS, ENGINE_PARAMS, engineDef } from './engineDefs';
 describe('engine defs', () => {
   test('one def per catalog entry with the shared engine params', () => {
     expect(ENGINE_DEFS.length).toBe(CATALOG.length);
-    expect(ENGINE_DEFS.length).toBe(86);
+    expect(ENGINE_DEFS.length).toBe(74);
     for (const d of ENGINE_DEFS) {
       expect(d.params?.length).toBe(3);
       for (const [i, p] of (d.params ?? []).entries()) {

@@ -19,18 +19,12 @@ adapter is a no-op safety net). Bodies are otherwise verbatim. The desktop
 originals live in `core-shaders/` in the PAPAGEDON-META source folder
 (outside this repo); only converted shaders ship here.
 
-## Signature3DPack originals
+## Removed: Signature3DPack (2026-11-03)
 
-`shaders/Signature3DPack/` is the exception: 12 original shaders written
-for this repo. Nano Hex Genesis, Liquid Mirror and Particle Galaxy 3D were
-rebuilt from descriptions after a full search of PAPAGEDON-META found no
-originals (absence re-verified by a second full META search plus a full
-read-only search of the PAPAGEDON-CORE- engine repo on 2026-11-02: no
-matching names, files, three.js scenes or components in either); the other 9 are
-new. Their manifest `source` paths start with `originals/`, and the catalog
-sync test covers them like converted shaders. All 12 follow the /app audio
-contract exactly (house beat pump, palette swell, house grading tail, no
-hard white) — see `shaders/signature3d.test.ts`.
+`shaders/Signature3DPack/` (12 lookalike shaders) was deleted: the real
+originals were found on PORTFOLIO- `origin/main` and ported as three.js
+scenes under `src/vision3d/` instead (see the Originals BUILD_LOG row).
+Kept in git history.
 
 ## Rewritten Aurora
 

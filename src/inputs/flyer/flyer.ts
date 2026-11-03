@@ -13,6 +13,29 @@ export interface JudgeResponse {
   model: string;
 }
 
+// Carries the server's precise error code ('server-key-missing' |
+// 'key-rejected' | 'meta-timeout' | 'meta-error' | 'http-<status>') so the
+// UI can speak plainly instead of showing a bare 500.
+export class FlyerError extends Error {
+  constructor(
+    public step: 'theme' | 'judge',
+    public code: string,
+    public status: number,
+  ) {
+    super(`${step} request failed: ${status} (${code})`);
+    this.name = 'FlyerError';
+  }
+}
+
+async function readCode(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: unknown };
+    return typeof body.error === 'string' ? body.error : `http-${res.status}`;
+  } catch {
+    return `http-${res.status}`;
+  }
+}
+
 // Shrink uploads so data URLs stay small (max dimension, JPEG).
 export function downscaleImage(file: File, maxDim = 1024): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -50,7 +73,7 @@ export async function requestTheme(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ flyerDataUrl, feedback, availableIds }),
   });
-  if (!res.ok) throw new Error(`theme request failed: ${res.status}`);
+  if (!res.ok) throw new FlyerError('theme', await readCode(res), res.status);
   return { theme: (await res.json()) as EventTheme, model: res.headers.get('x-aei-model') ?? '?' };
 }
 
@@ -65,6 +88,6 @@ export async function requestJudge(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ flyerDataUrl, theme, availableIds, samplePalette }),
   });
-  if (!res.ok) throw new Error(`judge request failed: ${res.status}`);
+  if (!res.ok) throw new FlyerError('judge', await readCode(res), res.status);
   return { verdict: (await res.json()) as ThemeVerdict, model: res.headers.get('x-aei-model') ?? '?' };
 }

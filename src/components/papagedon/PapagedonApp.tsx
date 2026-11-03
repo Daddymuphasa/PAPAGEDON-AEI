@@ -13,12 +13,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import BrandLogo from "@/components/BrandLogo";
 import { AudioAnalyzer, emptySignals, type ExperienceSignals } from "@/lib/papagedon/analyzer";
+import { AutoSensitivity, type SensitivityMode } from "@/inputs/audio/autoSensitivity";
 import { ExperienceGraph, type ExperienceGraphOutput } from "@/lib/papagedon/experienceGraph";
 import { AudioEngine, type AudioSourceKind, type InputDevice } from "@/lib/papagedon/audioSources";
 import { PapagedonRenderer } from "@/lib/papagedon/renderer";
 import { ASSET_BASE, catalog, type PackDef, type ThemeDef } from "@/lib/papagedon/catalog";
 import { withBasePath } from "@/basePath";
 import DirectorPanel, { type PanelImage } from "@/components/director/DirectorPanel";
+import Drawer from "@/components/Drawer";
 import FlyerPanel from "@/components/director/FlyerPanel";
 import { CATALOG } from "../../../shaders/catalog";
 import { ShowDirector, type DirectorEvent, type DirectorView } from "@/director/showDirector";
@@ -26,6 +28,7 @@ import { ENGINE_DEFS, ENGINE_PARAMS } from "@/director/engineDefs";
 import { applyLiveToEngine, engineSignalsToFeatures, punchBeatBoost, resolveStageTransition, rolesToThemeDef } from "@/director/engineBridge";
 import { logDecision } from "@/director/decisionLog";
 import { extractVerifiedTheme } from "@/inputs/flyer/applyTheme";
+import { FlyerError, downscaleImage } from "@/inputs/flyer/flyer";
 import { coerceRoles } from "@/theme/roles";
 import { generateEventVisuals } from "@/visuals/generate";
 import { ENERGY_TAGS } from "@/visuals/prompts";
@@ -35,15 +38,16 @@ import { shouldSampleCrowd } from "@/inputs/crowd/crowdSignal";
 import { verifyTrackMap } from "@/director/trackMap";
 import type { EventTheme, TrackMap } from "@/types";
 import { ORIGINALS, ORIGINALS_PACK, ORIGINAL_DEFS, originalEntry, originalIdFromFile } from "@/vision3d/originals";
-import { adaptSignals, createBeatHold } from "@/vision3d/adapter";
+import { adaptImmersiveSignals, adaptSignals, createBeatHold } from "@/vision3d/adapter";
 import { createNanoHexVisualizer, type NanoHexVisualizer } from "@/vision3d/hex/nanoHex";
+import { createImmersiveVisualizer, type ImmersiveId, type ImmersiveViz } from "@/vision3d/immersive/immersive";
 
 const DEMO_CYCLE_SECONDS = 20; // PAPAGEDON_DEMO_CYCLE in Runtime.cpp
 
 const themeById = (id: string | null | undefined): ThemeDef | undefined => catalog.themes.find((t) => t.id === id);
 const defaultPack = catalog.packs.find((p) => p.id === "SignaturePack") ?? catalog.packs[0];
 // GLSL packs plus the three.js originals (kept out of catalog.json/CATALOG,
-// which stay 1:1 with the 86 on-disk shaders per catalog.test.ts).
+// which stay 1:1 with the 74 on-disk shaders per catalog.test.ts).
 const ALL_PACKS: PackDef[] = [...catalog.packs, ORIGINALS_PACK];
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -56,13 +60,37 @@ function locateVisual(visualId: string): { pack: PackDef; index: number } | null
   return null;
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(new Error("could not read file"));
-    reader.readAsDataURL(file);
-  });
+function inputPlainError(e: unknown): string {
+  const name = e instanceof Error ? e.name : "";
+  if (!window.isSecureContext) {
+    return "Microphone needs the secure address — open the https version of this page.";
+  }
+  if (name === "NotAllowedError") {
+    return "Microphone permission was blocked — click the lock icon in the address bar, set Microphone to Allow, then try again.";
+  }
+  if (name === "NotFoundError" || name === "OverconstrainedError") {
+    return "No microphone was found.";
+  }
+  if (name === "NotReadableError" || name === "AbortError") {
+    return "That input is busy in another app or tab — close it there, then try again.";
+  }
+  return `Could not open the input: ${String(e)}`;
+}
+
+function flyerPlainError(err: unknown): string {
+  if (err instanceof FlyerError) {
+    switch (err.code) {
+      case "server-key-missing":
+        return "The server has no Meta key set — the host needs to add one.";
+      case "key-rejected":
+        return "The Meta key was rejected — it may be wrong or expired.";
+      case "meta-timeout":
+        return "Meta took too long to answer — try again.";
+      default:
+        return "Meta is having trouble right now — try again.";
+    }
+  }
+  return err instanceof Error ? err.message : String(err);
 }
 
 type Hud = { s: ExperienceSignals; g: ExperienceGraphOutput };
@@ -93,6 +121,8 @@ function PapagedonStage() {
   const rendererRef = useRef<PapagedonRenderer | null>(null);
   const audioRef = useRef<AudioEngine | null>(null);
   const analyzerRef = useRef(new AudioAnalyzer());
+  const sensitivityRef = useRef(new AutoSensitivity());
+  const sensModeRef = useRef<SensitivityMode>("auto");
   const graphRef = useRef(new ExperienceGraph());
   const shaderCache = useRef(new Map<string, string>());
   const canvasBRef = useRef<HTMLCanvasElement>(null);
@@ -114,6 +144,11 @@ function PapagedonStage() {
   const viz3DVariantRef = useRef<string | null>(null);
   const viz3DErrorRef = useRef<string | null>(null);
   const beatHoldRef = useRef(createBeatHold());
+  const canvas4DRef = useRef<HTMLCanvasElement>(null);
+  const viz4DRef = useRef<ImmersiveViz | null>(null);
+  const viz4DVariantRef = useRef<string | null>(null);
+  const viz4DErrorRef = useRef<string | null>(null);
+  const beat4DRef = useRef(createBeatHold());
   const packRef = useRef<PackDef>(defaultPack);
   const shaderIndexRef = useRef(0);
   const generatedIdRef = useRef<string | null>(null);
@@ -129,6 +164,8 @@ function PapagedonStage() {
   const [dragging, setDragging] = useState(false);
 
   const [source, setSource] = useState<AudioSourceKind | null>(null);
+  const [sensMode, setSensMode] = useState<SensitivityMode>("auto");
+  const [sensStatus, setSensStatus] = useState<"learning" | "locked">("learning");
   const [sourceLabel, setSourceLabel] = useState("No audio yet");
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [cameraOn, setCameraOn] = useState(false);
@@ -147,6 +184,7 @@ function PapagedonStage() {
   const [flyerTheme, setFlyerTheme] = useState<ThemeDef | null>(null);
   const [flyerBusy, setFlyerBusy] = useState(false);
   const [flyerError, setFlyerError] = useState<string | null>(null);
+  const [flyerNotice, setFlyerNotice] = useState<string | null>(null);
   const [images, setImages] = useState<PanelImage[]>([]);
   const [visualsBusy, setVisualsBusy] = useState(false);
   const [visualsStatus, setVisualsStatus] = useState<string | null>(null);
@@ -165,6 +203,7 @@ function PapagedonStage() {
   const theme = useMemo(() => flyerTheme ?? themeById(themeId) ?? catalog.themes[0], [flyerTheme, themeId]);
 
   // Render-loop mirrors (the loop and the director callback read refs).
+  sensModeRef.current = sensMode;
   packRef.current = pack;
   shaderIndexRef.current = shaderIndex;
   generatedIdRef.current = generatedId;
@@ -198,7 +237,10 @@ function PapagedonStage() {
       const dt = (now - last) / 1000;
       last = now;
       const frame = audioRef.current?.readFrame() ?? null;
-      const signals = frame ? analyzerRef.current.update(frame) : emptySignals();
+      const raw = frame ? analyzerRef.current.update(frame) : emptySignals();
+      // Auto sensitivity learns the room's noise floor and gates it out, so
+      // the stage, HUD and director all read settled signals — never raw noise.
+      const signals = frame ? sensitivityRef.current.update(raw, sensModeRef.current) : raw;
       const graph = graphRef.current.update(signals);
       if (signals.beat) beats++;
       const d = directorRef.current;
@@ -215,10 +257,16 @@ function PapagedonStage() {
       const selShader = selPack.shaders[Math.min(shaderIndexRef.current, selPack.shaders.length - 1)];
       const originalId = selShader ? originalIdFromFile(selShader.file) : null;
       const canvas3D = canvas3DRef.current;
-      if (originalId && canvas3D) {
+      const canvas4D = canvas4DRef.current;
+      const entry = originalId ? originalEntry(originalId) : undefined;
+      if (originalId && entry?.kind === "immersive" && canvas4D) {
+        driveImmersive(originalId, signals, canvas4D, canvasA, canvasB, canvas3D);
+      } else if (originalId && canvas3D) {
+        if (canvas4D) canvas4D.style.opacity = "0";
         driveOriginals(originalId, signals, canvas3D, canvasA, canvasB);
       } else {
         if (canvas3D) canvas3D.style.opacity = "0";
+        if (canvas4D) canvas4D.style.opacity = "0";
         const front = frontIsARef.current ? ra! : rb!;
         const back = frontIsARef.current ? rb! : ra!;
         front.render(signals, graph, dt);
@@ -239,6 +287,8 @@ function PapagedonStage() {
       }
       if (now - lastHud > 100) {
         lastHud = now;
+        const st = sensitivityRef.current.status();
+        setSensStatus((prev) => (prev === st ? prev : st));
         setHud({ s: signals, g: graph });
         if (beats) setBeatFlash((b) => b + beats);
         beats = 0;
@@ -255,6 +305,9 @@ function PapagedonStage() {
       viz3DRef.current?.dispose();
       viz3DRef.current = null;
       viz3DVariantRef.current = null;
+      viz4DRef.current?.dispose();
+      viz4DRef.current = null;
+      viz4DVariantRef.current = null;
     };
   }, []);
 
@@ -340,6 +393,7 @@ function PapagedonStage() {
   const afterSwitch = () => {
     const a = audioRef.current!;
     analyzerRef.current.reset();
+    sensitivityRef.current.reset();
     setSource(a.kind);
     setSourceLabel(a.label);
     setPlaying(a.playing);
@@ -407,7 +461,7 @@ function PapagedonStage() {
       setDevices(list);
       if (!id && list[0]) setDeviceId(list[0].deviceId);
     } catch (e) {
-      setSourceError(e instanceof Error && e.name === "NotAllowedError" ? "Microphone permission was blocked." : `Could not open the input: ${String(e)}`);
+      setSourceError(inputPlainError(e));
     }
   };
   const startLoopback = async () => {
@@ -415,7 +469,12 @@ function PapagedonStage() {
       await engine().useLoopback();
       afterSwitch();
     } catch (e) {
-      setSourceError(e instanceof Error ? e.message : String(e));
+      const msg = e instanceof Error ? e.message : String(e);
+      setSourceError(
+        !window.isSecureContext && msg.includes("not supported")
+          ? "System audio needs the secure address — open the https version of this page."
+          : msg,
+      );
     }
   };
   const togglePlay = () => {
@@ -515,15 +574,32 @@ function PapagedonStage() {
       return;
     }
     setCameraError(null);
+    // Browsers hide the camera API on insecure (plain http) pages — say so.
+    if (!window.isSecureContext) {
+      setCameraError("Camera needs the secure address — open the https version of this page.");
+      return;
+    }
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError("Camera access is not supported in this browser.");
       return;
     }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+    const openStream = () =>
+      navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: false,
       });
+    try {
+      let stream: MediaStream;
+      try {
+        stream = await openStream();
+      } catch (e) {
+        // Some devices reject the ideal constraints — retry with no asks.
+        if (e instanceof DOMException && e.name === "OverconstrainedError") {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } else {
+          throw e;
+        }
+      }
       cameraStreamRef.current = stream;
       const video = cameraVideoRef.current;
       if (!video) {
@@ -540,7 +616,27 @@ function PapagedonStage() {
       });
     } catch (e) {
       const name = e instanceof DOMException ? e.name : "";
-      setCameraError(name === "NotAllowedError" ? "Camera permission was blocked." : name === "NotFoundError" ? "No camera was found." : "Could not start the camera.");
+      if (name === "NotAllowedError") {
+        // Stored denial is the common case: tell the user exactly how to undo it.
+        let hint = "Camera permission was blocked.";
+        try {
+          const perm = await navigator.permissions?.query({ name: "camera" as PermissionName });
+          if (perm?.state === "denied") {
+            hint = "Camera is blocked for this site — click the lock icon in the address bar, set Camera to Allow, then press Try again.";
+          } else if (perm?.state === "prompt") {
+            hint = "Please choose Allow in the browser's camera popup, then press Try again.";
+          }
+        } catch {
+          // Permissions API missing — keep the generic hint.
+        }
+        setCameraError(hint);
+      } else if (name === "NotFoundError" || name === "OverconstrainedError") {
+        setCameraError("No camera was found on this device.");
+      } else if (name === "NotReadableError" || name === "AbortError") {
+        setCameraError("The camera is busy in another app or tab — close it there, then press Try again.");
+      } else {
+        setCameraError("Could not start the camera.");
+      }
       setCameraOn(false);
     }
   }, [cameraOn, stopCamera]);
@@ -612,10 +708,12 @@ function PapagedonStage() {
           crowdCount: tick.signals.crowdCount,
         });
         setSamStatus(
-          `SAM ${tick.model} · crowd ${Math.round(tick.signals.crowdCoverage * 100)}% · motion ${tick.signals.crowdMotion.toFixed(2)}`,
+          tick.signals.performerPresent
+            ? `Crowd camera: performer spotted · crowd ${Math.round(tick.signals.crowdCoverage * 100)}%`
+            : `Crowd camera: watching · crowd ${Math.round(tick.signals.crowdCoverage * 100)}%`,
         );
       } catch (e) {
-        if (!cancelled) setSamStatus(`SAM unavailable (${e instanceof Error ? e.message : String(e)})`);
+        if (!cancelled) setSamStatus(`Crowd camera unavailable (${e instanceof Error ? e.message : String(e)})`);
       }
     }, 1000);
     return () => {
@@ -675,6 +773,42 @@ function PapagedonStage() {
       return;
     }
     canvas3D.style.opacity = "1";
+    canvasA.style.opacity = "0";
+    canvasB.style.opacity = "0";
+  };
+
+  // Same ownership pattern for the immersive (UnrealBloom) visualizer on its
+  // own canvas: room follows audio energy, crowd stays 0 (no fusion yet).
+  const driveImmersive = (
+    originalId: string,
+    signals: ExperienceSignals,
+    canvas4D: HTMLCanvasElement,
+    canvasA: HTMLCanvasElement,
+    canvasB: HTMLCanvasElement,
+    canvas3D: HTMLCanvasElement | null,
+  ) => {
+    try {
+      viz4DRef.current ??= createImmersiveVisualizer(canvas4D);
+      const entry = originalEntry(originalId);
+      if (entry && entry.kind === "immersive" && viz4DVariantRef.current !== entry.variantId) {
+        viz4DRef.current.setScene(entry.variantId as ImmersiveId);
+        viz4DVariantRef.current = entry.variantId;
+      }
+      viz4DRef.current.render(adaptImmersiveSignals(signals, beat4DRef.current, signals.energy));
+      if (viz4DErrorRef.current) {
+        viz4DErrorRef.current = null;
+        setShaderError(null);
+      }
+    } catch (e) {
+      const msg = `Immersive 3D: ${e instanceof Error ? e.message : String(e)}`;
+      if (viz4DErrorRef.current !== msg) {
+        viz4DErrorRef.current = msg;
+        setShaderError(msg);
+      }
+      return;
+    }
+    canvas4D.style.opacity = "1";
+    if (canvas3D) canvas3D.style.opacity = "0";
     canvasA.style.opacity = "0";
     canvasB.style.opacity = "0";
   };
@@ -760,19 +894,23 @@ function PapagedonStage() {
   const uploadFlyer = async (file: File) => {
     setFlyerBusy(true);
     setFlyerError(null);
+    setFlyerNotice(null);
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      const dataUrl = await downscaleImage(file);
       const res = await extractVerifiedTheme(dataUrl, { fileName: file.name });
       if (!res.ok || !res.theme) {
         setFlyerError(res.errors[0] ?? "Could not read that flyer.");
         return;
+      }
+      if (res.offline) {
+        setFlyerNotice("Made on this device — the online read failed, so the colours come straight from the flyer.");
       }
       setEventTheme(res.theme);
       const roles = coerceRoles(res.theme.palette, res.theme.roles);
       setFlyerTheme(rolesToThemeDef(res.theme.eventName, roles));
       directorRef.current?.opening(res.theme);
     } catch (err) {
-      setFlyerError(err instanceof Error ? err.message : String(err));
+      setFlyerError(flyerPlainError(err));
     } finally {
       setFlyerBusy(false);
     }
@@ -794,7 +932,7 @@ function PapagedonStage() {
       directorRef.current?.setEventImages(
         imgs.map((i) => ({ id: i.id, energyTag: i.energyTag, enabled: i.enabled })),
       );
-      setVisualsStatus(`${settled.length} visuals ready (${settled.map((x) => x.source).join(", ")})`);
+      setVisualsStatus(`${settled.length} artwork ${settled.length === 1 ? "image" : "images"} ready — blending over the show.`);
     } catch (err) {
       setVisualsStatus(err instanceof Error ? err.message : String(err));
     } finally {
@@ -833,7 +971,7 @@ function PapagedonStage() {
       generatedRef.current.set(id, settled.glsl);
       setGeneratedId(id);
       setGeneratedCount((c) => c + 1);
-      setShaderStatus(`Staged on canvas (${settled.model}).`);
+      setShaderStatus("Your new look is on stage.");
     } finally {
       setShaderBusy(false);
     }
@@ -893,25 +1031,42 @@ function PapagedonStage() {
     const canvas = document.createElement("canvas");
     canvas.width = 320;
     canvas.height = 240;
+    const canvas4 = document.createElement("canvas");
+    canvas4.width = 320;
+    canvas4.height = 240;
     let viz: NanoHexVisualizer | null = null;
+    let viz4: ImmersiveViz | null = null;
     try {
       viz = createNanoHexVisualizer(canvas);
+      viz4 = createImmersiveVisualizer(canvas4);
     } catch {
       viz = null;
+      viz4 = null;
     }
-    if (!viz) {
+    if (!viz || !viz4) {
+      viz?.dispose();
+      viz4?.dispose();
       setDiag3d({ running: false, checked: 0, total: ORIGINALS.length, failures: ["WebGL unavailable for the 3D check"] });
       return;
     }
     const failures: string[] = [];
     let checked = 0;
     const hold = createBeatHold();
+    const hold4 = createBeatHold();
     for (const e of ORIGINALS) {
       try {
-        viz.setVariant(e.variantId);
-        for (let f = 0; f < 3; f += 1) {
-          viz.render(adaptSignals({ ...emptySignals(), energy: 0.7, bass: 0.8, mid: 0.5, treble: 0.4, beat: f === 1 }, hold));
-          await sleep(45);
+        if (e.kind === "immersive") {
+          viz4.setScene(e.variantId as ImmersiveId);
+          for (let f = 0; f < 3; f += 1) {
+            viz4.render(adaptImmersiveSignals({ ...emptySignals(), energy: 0.7, bass: 0.8, mid: 0.5, treble: 0.4, beat: f === 1 }, hold4, 0.7));
+            await sleep(45);
+          }
+        } else {
+          viz.setVariant(e.variantId);
+          for (let f = 0; f < 3; f += 1) {
+            viz.render(adaptSignals({ ...emptySignals(), energy: 0.7, bass: 0.8, mid: 0.5, treble: 0.4, beat: f === 1 }, hold));
+            await sleep(45);
+          }
         }
       } catch (err) {
         failures.push(`${e.id}: ${err instanceof Error ? err.message : String(err)}`);
@@ -920,6 +1075,7 @@ function PapagedonStage() {
       setDiag3d({ running: true, checked, total: ORIGINALS.length, failures: [...failures] });
     }
     viz.dispose();
+    viz4.dispose();
     setDiag3d({ running: false, checked, total: ORIGINALS.length, failures });
     logDecision({
       step: "verify",
@@ -953,6 +1109,7 @@ function PapagedonStage() {
       <canvas ref={canvasRef} className="pgx-stage" />
       <canvas ref={canvasBRef} className="pgx-stage" style={{ opacity: 0 }} />
       <canvas ref={canvas3DRef} className="pgx-stage" style={{ opacity: 0 }} />
+      <canvas ref={canvas4DRef} className="pgx-stage" style={{ opacity: 0 }} />
       {textureImg && textureLayer && (
         <div
           aria-hidden="true"
@@ -990,10 +1147,16 @@ function PapagedonStage() {
           <div className="mx-4 rounded-lg border border-red-400/40 bg-red-950/60 p-3 text-sm md:mx-6">{glError}</div>
         )}
 
+        {!source && !eventTheme && (
+          <div className="mx-4 mt-3 rounded-lg border border-line bg-black/30 p-3 text-[12px] md:mx-6">
+            <span className="font-heading text-[14px]">Start the show in 3 steps:</span>{" "}
+            <span className="text-muted">1 · Play some music below&ensp;2 · Pick a look&ensp;3 · Add your flyer (optional)</span>
+          </div>
+        )}
+
         <div className="flex min-h-0 flex-1 flex-col justify-between gap-3 overflow-y-auto px-4 pb-4 md:flex-row md:items-end md:px-6">
           <div className="flex w-full flex-col gap-3 md:w-[300px]">
-            <section className="pg-panel">
-              <div className="pg-label mb-2">Audio input</div>
+            <Drawer title="Music in">
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                 <label className={`pg-btn justify-center ${source === "file" ? "pg-btn-on" : ""}`}>
                   File
@@ -1022,9 +1185,32 @@ function PapagedonStage() {
                   <button className="pg-btn !px-2 !py-1" onClick={togglePlay}>{playing ? "Pause" : "Play"}</button>
                 )}
               </div>
-              {!source && <p className="mt-1 text-[11px] text-subtle">Pick a file (or drop one anywhere), use the mic or an audio interface, or share a tab / system audio.</p>}
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="pg-label">Reaction</span>
+                {(["auto", "calm", "balanced", "wild"] as SensitivityMode[]).map((m) => (
+                  <button
+                    key={m}
+                    className={`pg-btn !px-2 !py-1 ${sensMode === m ? "pg-btn-on" : ""}`}
+                    onClick={() => setSensMode(m)}
+                    title={m === "auto" ? "Learns the room and ignores background noise" : `Fixed ${m} response`}
+                  >
+                    {m[0].toUpperCase() + m.slice(1)}
+                  </button>
+                ))}
+              </div>
+              {source && (
+                <p className="mt-1 text-[11px] text-subtle">
+                  {sensStatus === "learning" ? "Listening to the room…" : "Locked to this room — background noise ignored"}
+                </p>
+              )}
+              {!source && <p className="mt-1 text-[11px] text-subtle">Drop a song anywhere, use the mic, or share your system sound.</p>}
               {sourceError && <p className="mt-1 text-[11px] text-red-300">{sourceError}</p>}
-              {cameraError && <p className="mt-1 text-[11px] text-red-300">{cameraError}</p>}
+              {cameraError && (
+                <div className="mt-1 flex items-start justify-between gap-2">
+                  <p className="text-[11px] text-red-300">{cameraError}</p>
+                  <button className="pg-btn shrink-0 !px-2 !py-1" onClick={() => void toggleCamera()}>Try again</button>
+                </div>
+              )}
               {cameraOn && <p className="mt-1 text-[11px] text-accent-soft">Camera active · preview pinned to the stage</p>}
               {cameraScene && (
                 <div className="mt-2 rounded-md border border-line bg-black/20 p-2">
@@ -1039,17 +1225,21 @@ function PapagedonStage() {
                   </button>
                 </div>
               )}
-            </section>
+            </Drawer>
 
-            <section className="pg-panel">
-              <div className="pg-label mb-2">Visuals · packs</div>
-              <select className="pg-select" value={pack.id} onChange={(e) => choosePack(e.target.value)}>
-                {ALL_PACKS.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name} ({p.shaders.length})</option>
-                ))}
+            <Drawer title="Looks">
+              <select className="pg-select" value={pack.id} onChange={(e) => choosePack(e.target.value)} aria-label="Look pack">
+                <optgroup label="Originals (3D)">
+                  <option value={ORIGINALS_PACK.id}>{ORIGINALS_PACK.name} ({ORIGINALS_PACK.shaders.length})</option>
+                </optgroup>
+                <optgroup label="Engine packs">
+                  {catalog.packs.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.shaders.length})</option>
+                  ))}
+                </optgroup>
               </select>
               <div className="mt-2 flex items-center gap-1.5">
-                <button className="pg-btn !px-2" onClick={() => step(-1)} aria-label="Previous shader">[</button>
+                <button className="pg-btn !px-2" onClick={() => step(-1)} aria-label="Previous look">[</button>
                 <select className="pg-select" value={shaderIndex} onChange={(e) => {
                   const i = Number(e.target.value);
                   setShaderIndex(i);
@@ -1061,7 +1251,7 @@ function PapagedonStage() {
                     <option key={sh.id} value={i}>{String(i + 1).padStart(2, "0")} · {sh.name}</option>
                   ))}
                 </select>
-                <button className="pg-btn !px-2" onClick={() => step(1)} aria-label="Next shader">]</button>
+                <button className="pg-btn !px-2" onClick={() => step(1)} aria-label="Next look">]</button>
               </div>
               <div className="mt-2 flex items-center gap-1.5">
                 <select className="pg-select" value={themeId} onChange={(e) => pickTheme(e.target.value)}>
@@ -1069,7 +1259,7 @@ function PapagedonStage() {
                     <option key={t.id} value={t.id}>{i + 1} · {t.name}</option>
                   ))}
                 </select>
-                <button className={`pg-btn ${autoCycle ? "pg-btn-on" : ""}`} onClick={() => setAutoCycle((v) => !v)} title={`Next shader every ${DEMO_CYCLE_SECONDS}s`}>
+                <button className={`pg-btn ${autoCycle ? "pg-btn-on" : ""}`} onClick={() => setAutoCycle((v) => !v)} title={`Next look every ${DEMO_CYCLE_SECONDS}s`}>
                   Auto
                 </button>
               </div>
@@ -1082,21 +1272,22 @@ function PapagedonStage() {
                 </select>
               </div>
               {shaderError && <p className="mt-1 text-[11px] text-red-300">{shaderError}</p>}
-            </section>
+            </Drawer>
 
-            <section className="pg-panel" data-panel="flyer">
-              <div className="pg-label mb-2">Event flyer</div>
-              <FlyerPanel control={{ theme: eventTheme, busy: flyerBusy, error: flyerError, onFile: uploadFlyer }} />
-            </section>
+            <Drawer title="Your event" panel="flyer">
+              <FlyerPanel control={{ theme: eventTheme, busy: flyerBusy, error: flyerError, notice: flyerNotice, onFile: uploadFlyer }} />
+            </Drawer>
 
-            <section className="pg-panel">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="pg-label">Live signals</span>
+            <Drawer
+              title="Sound right now"
+              defaultOpen={false}
+              badge={
                 <span className="font-mono text-[11px] text-muted">
                   <span key={beatFlash} className="mr-1.5 inline-block h-2 w-2 rounded-full bg-accent" style={{ animation: "pgxBeat .25s ease-out forwards" }} />
                   {s.bpm ? `${Math.round(s.bpm)} BPM` : "— BPM"} · {g.state}
                 </span>
-              </div>
+              }
+            >
               <div className="grid gap-1.5">
                 <Meter label="Energy" value={s.energy} />
                 <Meter label="Bass" value={s.bass} />
@@ -1104,9 +1295,9 @@ function PapagedonStage() {
                 <Meter label="Treble" value={s.treble} />
               </div>
               <p className="mt-2 text-[10px] leading-snug text-subtle">
-                Analysis runs in your browser: a direct port of the engine&apos;s AudioAnalyzer. Keys: Space play/pause · [ ] shader · 1–9 theme · A auto · H hide.
+                Keys: Space play/pause · [ ] look · 1–9 colours · A auto · H hide.
               </p>
-            </section>
+            </Drawer>
           </div>
 
           <div className="w-full md:w-[360px]" data-panel="director">

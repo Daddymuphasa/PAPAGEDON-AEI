@@ -45,7 +45,7 @@ describe('engine shader catalog', () => {
     const ids = CATALOG.map((c) => c.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(CATALOG_IDS).toEqual(ids);
-    expect(CATALOG.length).toBe(86);
+    expect(CATALOG.length).toBe(74);
   });
 
   test('entries are well-formed', () => {
@@ -83,7 +83,7 @@ describe('engine shader catalog', () => {
       expect(existsSync(join(core, c.file)), `missing on disk: ${c.file}`).toBe(true);
     }
     const disk = diskFrags(join(core, 'shaders'));
-    expect(disk.length).toBe(86);
+    expect(disk.length).toBe(74);
     for (const abs of disk) {
       const rel = abs.substring(core.length + 1).replace(/\\/g, '/');
       expect(files.has(rel), `disk shader without catalog entry: ${rel}`).toBe(true);

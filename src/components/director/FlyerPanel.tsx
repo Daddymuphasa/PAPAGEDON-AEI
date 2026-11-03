@@ -6,14 +6,21 @@ export interface FlyerControl {
   theme: EventTheme | null;
   busy: boolean;
   error: string | null;
+  notice: string | null;
   onFile: (file: File) => void;
+}
+
+function energyWord(energy: number): string {
+  if (energy < 0.33) return 'Low';
+  if (energy < 0.66) return 'Medium';
+  return 'High';
 }
 
 export default function FlyerPanel({ control }: { control: FlyerControl }) {
   return (
     <div className="flex flex-col gap-2">
       <label className={`pg-btn justify-center ${control.busy ? 'opacity-50' : ''}`}>
-        {control.busy ? 'Reading flyer…' : 'Upload event flyer'}
+        {control.busy ? 'Reading…' : 'Add your flyer'}
         <input
           type="file"
           accept="image/*"
@@ -27,6 +34,7 @@ export default function FlyerPanel({ control }: { control: FlyerControl }) {
         />
       </label>
       {control.error && <p className="text-[11px] text-red-300">{control.error}</p>}
+      {control.notice && <p className="text-[11px] text-accent-soft">{control.notice}</p>}
       {control.theme ? (
         <div className="text-[12px]">
           <div className="font-heading text-[15px]">{control.theme.eventName}</div>
@@ -39,11 +47,11 @@ export default function FlyerPanel({ control }: { control: FlyerControl }) {
             ))}
           </div>
           <div className="mt-1 text-[11px] text-subtle">
-            energy {control.theme.energy.toFixed(2)} · {control.theme.suggestedShaderIds.length} suggested visuals
+            Energy: {energyWord(control.theme.energy)} · {control.theme.suggestedShaderIds.length} matching looks
           </div>
         </div>
       ) : (
-        <p className="text-[11px] text-subtle">Drop a flyer and the director opens the show in its colours.</p>
+        <p className="text-[11px] text-subtle">Add a flyer and the show opens in its colours.</p>
       )}
     </div>
   );

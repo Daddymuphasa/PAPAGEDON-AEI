@@ -3,6 +3,7 @@
 // beat as a decaying 0..1 hold (VisionStage's beatHold) plus the nano-hex
 // bass-gated pulse. Pure functions + explicit hold state, fully unit-tested.
 import type { ExperienceSignals } from '../lib/papagedon/analyzer';
+import type { ImmersiveSignals } from './immersive/immersive';
 
 export interface OriginalSignals {
   energy: number;
@@ -38,5 +39,25 @@ export function adaptSignals(s: ExperienceSignals, hold: BeatHold): OriginalSign
     treble: clamp01(s.treble),
     beat: hold.value,
     pulse: s.beat ? Math.min(1, bass) : 0,
+  };
+}
+
+// Immersive scenes take room + crowd on top of the band shape. Room follows
+// audio energy for now (crowd stays 0 — camera-driven fusion is a later
+// slice, not this port).
+export function adaptImmersiveSignals(
+  s: ExperienceSignals,
+  hold: BeatHold,
+  room: number,
+): ImmersiveSignals {
+  const base = adaptSignals(s, hold);
+  return {
+    energy: base.energy,
+    bass: base.bass,
+    mid: base.mid,
+    treble: base.treble,
+    beat: base.beat,
+    room: clamp01(room),
+    crowd: 0,
   };
 }

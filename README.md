@@ -11,10 +11,14 @@ this repo.
 
 ## What it is
 
-- **Engine:** 86 shaders (73 converted + 13 originals: Badman 18, Festival 6, Hypnotic 6,
-  Pulse 6, Signature 12, Trance 26; originals are 12 3D signature + rewritten Aurora) and 9 themes, running WebGL2 in the
-  browser. File, mic, or loopback audio drives every frame. Scene changes
-  crossfade across a dual canvas; drops flash; blackout is one event away.
+- **Engine:** 74 shaders (73 converted + rewritten Aurora: Badman 18, Festival 6, Hypnotic 6,
+  Pulse 6, Signature 12, Trance 26) and 9 themes, running WebGL2 in the
+  browser, plus 13 three.js originals (Nano Hex, Liquid Mirror, Wave Tunnel,
+  Obsidian Bloom, Armor Scales, Prism Shards, Circuit Matrix, Gilded Reactor,
+  Electric Nexus, Neon Tunnel 3D, Particle Galaxy 3D, Audio Terrain 3D,
+  Light Cathedral 3D) on their own stage canvases. File, mic, or loopback audio
+  drives every frame. Scene changes crossfade across a dual canvas; drops
+  flash; blackout is one event away.
 - **Director:** Muse Spark picks the visual from the full catalog by energy,
   BPM, section, and mood (no immediate repeats), writes brand-new GLSL
   visuals (browser-verified, last-good fallback), reads event flyers into
@@ -37,12 +41,12 @@ this repo.
 
 1. Drop an audio file (or pick mic/loopback) — the engine plays.
 2. Upload an event flyer — the director opens the show in its colours.
-3. Leave **Auto director** on — Spark drives the wall; watch **Decisions**.
-4. **Generate event artwork** — textures blend over the shaders.
-5. **Ask Spark for a visual** — a new shader is staged, and the director
+3. Leave **Automatic** on — Spark drives the wall; watch **What happened**.
+4. **Make event artwork** — art blends over the looks.
+5. **Ask for a new look** — a new visual is staged, and the show
    can pick it too.
-6. **Shader check** — compiles all 86 shaders in your browser.
-7. Turn the camera on — SAM crowd energy feeds the show.
+6. **Checks** — verifies all 74 looks and 13 3D scenes in your browser.
+7. Turn the camera on — crowd energy feeds the show.
 
 ## Mock vs live
 

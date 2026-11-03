@@ -54,10 +54,6 @@ export function mockShowPlan(input: PlannerInput, cursor: number): ShowPlan {
     if ((input.theme?.suggestedShaderIds ?? []).includes(v.id)) s += 3;
     const meta = (v as VisualizerInfo).meta;
     if (!meta) return s;
-    if (meta.themeTags.includes('3d-signature')) {
-      if (input.summary.events.includes('drop')) s += 4;
-      else if (energy >= 0.75) s += 2;
-    }
     if (energy >= meta.energyRange[0] && energy <= meta.energyRange[1]) s += 1;
     for (const tag of [...meta.themeTags, ...meta.moods]) {
       if (tag && words.includes(tag.toLowerCase())) s += 2;

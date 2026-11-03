@@ -4,7 +4,7 @@
 import type { EventTheme } from '../../types';
 import { CATALOG, CATALOG_IDS } from '../../../shaders/catalog';
 import { logDecision } from '../../director/decisionLog';
-import { requestJudge, requestTheme } from './flyer';
+import { FlyerError, requestJudge, requestTheme } from './flyer';
 import { enhanceMockTheme, sampleFlyer, type FlyerSample } from './samplePalette';
 import { MAX_RETRIES, verifyThemePlain } from './verifyTheme';
 
@@ -12,6 +12,27 @@ export interface VerifiedTheme {
   ok: boolean;
   theme: EventTheme | null;
   errors: string[];
+  /** True when the theme was built on-device after the Meta read failed. */
+  offline: boolean;
+}
+
+// Offline fallback: real palette/energy/motifs/roles from the flyer's own
+// pixels (no model needed). enhanceMockTheme overrides everything except
+// genre/tempo/timing/typography, which stay sensible defaults.
+export function offlineThemeFromSample(sample: FlyerSample, fileName?: string): EventTheme {
+  const base: EventTheme = {
+    eventName: 'Untitled Event',
+    genre: 'Mixed',
+    mood: 'electric',
+    palette: ['#888888'],
+    energy: 0.5,
+    motifs: [],
+    typographyFeel: 'bold',
+    tempoBpm: { min: 90, max: 130 },
+    sceneSwitchSeconds: { min: 4, max: 12 },
+    suggestedShaderIds: ['SignaturePack/01_aurora'],
+  };
+  return enhanceMockTheme(base, sample, CATALOG, { fileName });
 }
 
 function errMessage(err: unknown): string {
@@ -76,6 +97,26 @@ export async function extractVerifiedTheme(flyerDataUrl: string, opts?: { fileNa
         samplePalette = enhanced.samplePalette;
       }
     } catch (err) {
+      // Live read failed (bad key, Meta down, timeout): fall back to a real
+      // on-device theme from the flyer's own pixels instead of failing.
+      if (err instanceof FlyerError) {
+        try {
+          const sample = await sampleFlyer(flyerDataUrl);
+          const theme = offlineThemeFromSample(sample, opts?.fileName);
+          logDecision({
+            step: 'observe',
+            model: 'local',
+            input: `extract call (${err.code})`,
+            result: 'offline theme from flyer pixels',
+            verify: { pass: true, reason: 'offline fallback' },
+            retries: attempt,
+            latencyMs: Math.round(performance.now() - t0),
+          });
+          return { ok: true, theme, errors: [], offline: true };
+        } catch {
+          // Pixel sampling failed too — fall through to the retry loop.
+        }
+      }
       lastErrors = [`extract failed: ${errMessage(err)}`];
       logDecision({
         step: 'observe',
@@ -133,6 +174,20 @@ export async function extractVerifiedTheme(flyerDataUrl: string, opts?: { fileNa
         continue;
       }
     } catch (err) {
+      // The theme already passed the plain checks: if the judge call itself
+      // fails (key/network), keep the good theme and say so.
+      if (err instanceof FlyerError) {
+        logDecision({
+          step: 'observe',
+          model: 'local',
+          input: `judge call (${err.code})`,
+          result: 'judge unreachable — kept plain-verified theme',
+          verify: { pass: true, reason: 'plain checks passed' },
+          retries: attempt,
+          latencyMs: Math.round(performance.now() - j0),
+        });
+        return { ok: true, theme, errors: [], offline: true };
+      }
       lastErrors = [`judge failed: ${errMessage(err)}`];
       logDecision({
         step: 'observe',
@@ -155,7 +210,7 @@ export async function extractVerifiedTheme(flyerDataUrl: string, opts?: { fileNa
       retries: attempt,
       latencyMs: null,
     });
-    return { ok: true, theme, errors: [] };
+    return { ok: true, theme, errors: [], offline: false };
   }
 
   logDecision({
@@ -167,5 +222,5 @@ export async function extractVerifiedTheme(flyerDataUrl: string, opts?: { fileNa
     retries: MAX_RETRIES,
     latencyMs: null,
   });
-  return { ok: false, theme: null, errors: lastErrors };
+  return { ok: false, theme: null, errors: lastErrors, offline: false };
 }

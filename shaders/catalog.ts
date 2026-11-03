@@ -102,18 +102,6 @@ export const CATALOG: CatalogEntry[] = [
   v('TranceExperiencePack/24_glass_garden', 'Glass Garden', ['trance', 'glass', 'garden', 'crystal'], [0.25, 0.75], ['dreamy', 'atmospheric'], 'shaders/TranceExperiencePack/shaders/24_glass_garden.frag'),
   v('TranceExperiencePack/25_velvet_horizon', 'Velvet Horizon', ['trance', 'velvet', 'horizon', 'dusk'], [0, 0.45], ['dreamy', 'atmospheric'], 'shaders/TranceExperiencePack/shaders/25_velvet_horizon.frag'),
   v('TranceExperiencePack/26_starlight_weave', 'Starlight Weave', ['trance', 'stars', 'weave', 'night'], [0.25, 0.75], ['dreamy', 'atmospheric'], 'shaders/TranceExperiencePack/shaders/26_starlight_weave.frag'),
-  v('Signature3DPack/01_nano_hex_genesis', 'Nano Hex Genesis', ['3d-signature', 'hex', 'crystal', 'raymarch'], [0.7, 1], ['peak', 'drop', 'monumental'], 'shaders/Signature3DPack/01_nano_hex_genesis.frag'),
-  v('Signature3DPack/02_liquid_mirror', 'Liquid Mirror', ['3d-signature', 'liquid', 'chrome', 'mirror'], [0.5, 1], ['flowing', 'luxury', 'peak'], 'shaders/Signature3DPack/02_liquid_mirror.frag'),
-  v('Signature3DPack/03_particle_galaxy', 'Particle Galaxy 3D', ['3d-signature', 'particle', 'galaxy', 'spiral'], [0.7, 1], ['cosmic', 'peak', 'drop'], 'shaders/Signature3DPack/03_particle_galaxy.frag'),
-  v('Signature3DPack/04_crystal_throne', 'Crystal Throne', ['3d-signature', 'crystal', 'throne', 'raymarch'], [0.5, 1], ['monumental', 'luxury', 'peak'], 'shaders/Signature3DPack/04_crystal_throne.frag'),
-  v('Signature3DPack/05_hex_reactor', 'Hex Reactor Core', ['3d-signature', 'hex', 'reactor', 'energy'], [0.7, 1], ['driving', 'peak', 'drop'], 'shaders/Signature3DPack/05_hex_reactor.frag'),
-  v('Signature3DPack/06_quartz_storm', 'Quartz Storm', ['3d-signature', 'crystal', 'storm', 'shards'], [0.5, 1], ['wild', 'bright', 'peak'], 'shaders/Signature3DPack/06_quartz_storm.frag'),
-  v('Signature3DPack/07_chrome_tide', 'Chrome Tide', ['3d-signature', 'liquid', 'chrome', 'ocean'], [0.5, 1], ['flowing', 'vast', 'peak'], 'shaders/Signature3DPack/07_chrome_tide.frag'),
-  v('Signature3DPack/08_mercury_bloom', 'Mercury Bloom', ['3d-signature', 'liquid', 'bloom', 'chrome'], [0.5, 1], ['elegant', 'unfolding', 'peak'], 'shaders/Signature3DPack/08_mercury_bloom.frag'),
-  v('Signature3DPack/09_glass_tsunami', 'Glass Tsunami', ['3d-signature', 'liquid', 'wave', 'glass'], [0.7, 1], ['massive', 'peak', 'drop'], 'shaders/Signature3DPack/09_glass_tsunami.frag'),
-  v('Signature3DPack/10_nebula_forge', 'Nebula Forge', ['3d-signature', 'particle', 'nebula', 'forge'], [0.5, 1], ['cosmic', 'forging', 'peak'], 'shaders/Signature3DPack/10_nebula_forge.frag'),
-  v('Signature3DPack/11_orbital_swarm', 'Orbital Swarm', ['3d-signature', 'particle', 'orbital', 'swarm'], [0.7, 1], ['kinetic', 'peak', 'drop'], 'shaders/Signature3DPack/11_orbital_swarm.frag'),
-  v('Signature3DPack/12_supernova_choir', 'Supernova Choir', ['3d-signature', 'particle', 'supernova', 'finale'], [0.7, 1], ['finale', 'peak', 'drop'], 'shaders/Signature3DPack/12_supernova_choir.frag'),
 ];
 
 export const CATALOG_IDS: string[] = CATALOG.map((c) => c.id);
