@@ -53,7 +53,7 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.05 - uBass * 0.02;
+  uv *= 1.0 - kick * 0.14 - uBass * 0.07 - uEnergy * 0.05;
   float t = uTime * (0.35 + uEnergy * 0.25) * uMotion;
   int per = int(mix(28.0, 64.0, uDetail));
 
@@ -63,6 +63,7 @@ void main() {
   float aspect = uResolution.x / uResolution.y;
 
   vec3 color = uBackground * 0.5;
+  float pattern = 0.0;
 
   // Distant starfield for depth.
   vec2 g = uv * 3.0 + vec2(t * 0.01, 0.0);
@@ -99,18 +100,21 @@ void main() {
       float core = exp(-dot(dd, dd) / max(sz * sz, 0.000001));
       float halo = exp(-dot(dd, dd) / max(sz * sz * 25.0, 0.00001)) * 0.25;
       color += pcol * bright * (core + halo);
+      pattern = max(pattern, clamp(core + halo, 0.0, 1.0));
     }
   }
 
   float coreD = length(uv - vec2(0.0, 0.14));
   color += uAccentColour * (0.5 + kick * 2.0 + uBass) * exp(-coreD * coreD * 6.0);
+  pattern = max(pattern, exp(-coreD * coreD * 6.0));
 
   float luma = dot(color, vec3(0.299, 0.587, 0.114));
   float sat = clamp(uSaturationBase + 0.25 + uIntensity * uSaturationScale, 0.0, 1.3);
   color = mix(vec3(luma), color, sat);
-  color *= (0.45 + uEnergy * 0.9) * uMasterExposure;
-  color += uBackground * 0.2;
-  color += color * kick * 0.5;
+  color *= (0.16 + uEnergy * 1.1) * uMasterExposure * (0.5 + 0.75 * pattern + 0.3);
+  color += uBackground * (1.0 - pattern) * 1.4;
+  color += color * kick * 0.9;
+  color += color * uBass * 0.3;
   color += color * uGlow * uMasterGlow;
   color += color * color * uBloom;
   color *= mix(vec3(0.9, 1.0, 1.1), vec3(1.1, 1.0, 0.9), clamp(uMood, 0.0, 1.0));

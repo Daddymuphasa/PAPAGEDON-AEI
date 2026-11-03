@@ -60,12 +60,13 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.05 - uBass * 0.02;
+  uv *= 1.0 - kick * 0.14 - uBass * 0.07 - uEnergy * 0.05;
   float t = uTime * (0.5 + uEnergy * 0.3) * uMotion;
   int count = int(mix(18.0, 42.0, uDetail));
   float aspect = uResolution.x / uResolution.y;
 
   vec3 color = uBackground * 0.45;
+  float pattern = 0.0;
   vec2 g = uv * 2.6;
   float st = hash21(floor(g));
   color += uPrimaryColour * smoothstep(0.986, 1.0, st) * (0.3 + uTreble * 0.7) * 0.7;
@@ -98,6 +99,7 @@ void main() {
       vec2 dd = uv - suv;
       float m = exp(-dot(dd, dd) / max(sz * sz, 0.000001));
       color += pcol * m * (0.5 + sp * 1.6 + uTreble * 0.7) * tw * fade;
+      pattern = max(pattern, clamp(m * fade, 0.0, 1.0));
     }
   }
 
@@ -110,13 +112,15 @@ void main() {
   float ringR = abs(length(ruv) - 0.85 * breathe);
   float ringSp = texture(uSpectrum, vec2(0.72, 0.5)).r;
   color += palette(0.6) * exp(-ringR * ringR * 90.0) * (0.5 + ringSp * 1.5 + kick * 0.8);
+  pattern = max(pattern, exp(-ringR * ringR * 90.0));
 
   float luma = dot(color, vec3(0.299, 0.587, 0.114));
   float sat = clamp(uSaturationBase + 0.25 + uIntensity * uSaturationScale, 0.0, 1.3);
   color = mix(vec3(luma), color, sat);
-  color *= (0.45 + uEnergy * 0.9) * uMasterExposure;
-  color += uBackground * 0.2;
-  color += color * kick * 0.5;
+  color *= (0.16 + uEnergy * 1.1) * uMasterExposure * (0.5 + 0.75 * pattern + 0.3);
+  color += uBackground * (1.0 - pattern) * 1.4;
+  color += color * kick * 0.9;
+  color += color * uBass * 0.3;
   color += color * uGlow * uMasterGlow;
   color += color * color * uBloom;
   color *= mix(vec3(0.9, 1.0, 1.1), vec3(1.1, 1.0, 0.9), clamp(uMood, 0.0, 1.0));

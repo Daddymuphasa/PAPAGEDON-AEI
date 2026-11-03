@@ -110,7 +110,7 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.1 - uBass * 0.05 - uEnergy * 0.03;
+  uv *= 1.0 - kick * 0.16 - uBass * 0.09 - uEnergy * 0.06;
   float t = uTime * (0.3 + uEnergy * 0.2) * uMotion;
   int steps = int(mix(24.0, 56.0, uDetail));
   int motes = int(mix(10.0, 24.0, uDetail));
@@ -166,7 +166,7 @@ void main() {
       float backl = pow(clamp(dot(-rd, ld), 0.0, 1.0), 2.0) * fres;
       color += uAccentColour * backl * (0.6 + kick);
       // Dew sparkle on the rims.
-      color += vec3(1.0) * fres * spec * (0.5 + uTreble * 2.0);
+      color += mix(uAccentColour, palette(0.9), 0.5) * fres * spec * (0.5 + uTreble * 2.0);
       pattern = 0.6;
     } else if (mat < 1.5) {
       vec3 heartCol = mix(uPrimaryColour, uAccentColour, clamp(sp + uEnergy * 0.5, 0.0, 1.0));

@@ -63,32 +63,36 @@ vec3 aces(vec3 x) {
 float fbm(vec2 p, int oct) {
   float s = 0.0;
   float a = 0.5;
+  float norm = 0.0;
   for (int i = 0; i < 5; i++) {
     if (i >= oct) break;
     s += a * vnoise(p);
+    norm += a;
     p = p * 2.04 + vec2(3.1, 7.7);
     a *= 0.5;
   }
-  return s;
+  return s / max(norm, 0.0001);
 }
 
 float ridged(vec2 p, int oct) {
   float s = 0.0;
   float a = 0.55;
+  float norm = 0.0;
   for (int i = 0; i < 5; i++) {
     if (i >= oct) break;
     s += a * (1.0 - abs(vnoise(p) * 2.0 - 1.0));
+    norm += a;
     p = p * 2.13 + vec2(5.2, 1.3);
     a *= 0.5;
   }
-  return s;
+  return s / max(norm, 0.0001);
 }
 
 void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.06 - uBass * 0.03;
+  uv *= 1.0 - kick * 0.14 - uBass * 0.07 - uEnergy * 0.05;
   float t = uTime * (0.25 + uEnergy * 0.2) * uMotion;
   int oct = int(mix(2.0, 4.0, uDetail));
   int stars = int(mix(24.0, 60.0, uDetail));
@@ -104,6 +108,7 @@ void main() {
   float body = fbm(w * 1.4 + vec2(t * 0.05, -t * 0.04), oct);
   float fil = ridged(w * 2.2 - vec2(t * 0.07, t * 0.05), oct);
   vec3 color = uBackground * (0.35 + 0.4 * body);
+  float pattern = 0.0;
   color += palette(clamp(body * 1.1, 0.0, 1.0)) * body * (0.5 + uEnergy * 0.6);
   float seam = pow(clamp(fil - (0.72 - uBass * 0.22 - uEnergy * 0.12), 0.0, 1.0) * 2.2, 2.0);
   vec3 seamCol = mix(uPrimaryColour, uAccentColour, clamp(uBass + kick * 0.7, 0.0, 1.0));
@@ -114,6 +119,7 @@ void main() {
   float ringR = (1.0 - kick) * 2.6 + 0.15;
   float ring = exp(-pow((rr - ringR) * 5.0, 2.0)) * kick;
   color += uAccentColour * ring * 1.2;
+  pattern = clamp(seam + ring, 0.0, 1.0);
 
   // Drifting forge sparks.
   for (int i = 0; i < 64; i++) {
@@ -129,14 +135,16 @@ void main() {
     float tw = 0.5 + 0.5 * sin(uTime * (2.0 + uTreble * 9.0) + fi * 17.3);
     float m = exp(-dot(uv - suv, uv - suv) / max(0.00012 * dep, 0.00001));
     color += palette(h3) * m * (0.3 + sp * 1.5 + uTreble * 0.6) * tw;
+    pattern = max(pattern, m);
   }
 
   float luma = dot(color, vec3(0.299, 0.587, 0.114));
   float sat = clamp(uSaturationBase + 0.25 + uIntensity * uSaturationScale, 0.0, 1.3);
   color = mix(vec3(luma), color, sat);
-  color *= (0.5 + uEnergy * 0.9) * uMasterExposure;
-  color += uBackground * 0.22;
-  color += color * kick * 0.5;
+  color *= (0.16 + uEnergy * 1.1) * uMasterExposure * (0.5 + 0.75 * pattern + 0.3);
+  color += uBackground * (1.0 - pattern) * 1.4;
+  color += color * kick * 0.9;
+  color += color * uBass * 0.3;
   color += color * uGlow * uMasterGlow;
   color += color * color * uBloom;
   color *= mix(vec3(0.9, 1.0, 1.1), vec3(1.1, 1.0, 0.9), clamp(uMood, 0.0, 1.0));

@@ -107,7 +107,7 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.1 - uBass * 0.05 - uEnergy * 0.03;
+  uv *= 1.0 - kick * 0.16 - uBass * 0.09 - uEnergy * 0.06;
   float t = uTime * (0.3 + uEnergy * 0.2) * uMotion;
   int steps = int(mix(24.0, 64.0, uDetail));
   int shards = int(mix(6.0, 14.0, uDetail));

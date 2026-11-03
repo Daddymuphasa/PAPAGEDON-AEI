@@ -70,7 +70,7 @@ vec3 envMap(vec3 d, float t) {
   float sp = texture(uSpectrum, vec2(bx, 0.5)).r;
   col += uAccentColour * sp * up * 1.5;
   col += uSecondaryColour * pow(clamp(1.0 - abs(d.y), 0.0, 1.0), 5.0) * 0.7;
-  vec3 moonTint = mix(uAccentColour, vec3(1.0), 0.5);
+  vec3 moonTint = mix(uAccentColour, palette(0.9), 0.55);
   float md = dot(d, normalize(MOON_DIR));
   col += moonTint * (smoothstep(0.9995, 0.99985, md) * 2.2 + pow(clamp(md, 0.0, 1.0), 350.0) * 1.5);
   col += uPrimaryColour * (0.5 + 0.5 * sin(d.x * 4.0 - t * 0.6 + d.z * 2.0)) * 0.18 * up;
@@ -81,7 +81,7 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.1 - uBass * 0.05 - uEnergy * 0.03;
+  uv *= 1.0 - kick * 0.14 - uBass * 0.07 - uEnergy * 0.05;
   float t = uTime * (0.4 + uEnergy * 0.25) * uMotion;
   int steps = int(mix(20.0, 48.0, uDetail));
   int spray = int(mix(10.0, 24.0, uDetail));
@@ -124,14 +124,14 @@ void main() {
     // Bioluminescent crests: living light riding the foam.
     float foam = smoothstep(0.32, 0.62, hC + uBass * 0.18 + uTreble * 0.05);
     vec3 bio = mix(uPrimaryColour, uAccentColour, clamp(uBass * 1.2 + kick * 0.6, 0.0, 1.0));
-    color = mix(color, mix(bio, vec3(1.0), 0.35), foam * 0.7);
+    color = mix(color, mix(bio, palette(0.85), 0.4), foam * 0.7);
     color += bio * foam * (0.4 + uBass * 0.9);
     // Moon glitter path dancing toward the viewer.
     vec3 r2 = reflect(rd, n);
     float glit = pow(clamp(dot(r2, normalize(MOON_DIR)), 0.0, 1.0), 60.0);
     glit *= 0.4 + 0.6 * sin(p.x * 9.0 + t * 2.0) * sin(p.z * 23.0 - t * 1.4);
     glit = max(glit, 0.0);
-    color += mix(uAccentColour, vec3(1.0), 0.55) * glit * (1.6 + uTreble * 1.6);
+    color += mix(uAccentColour, palette(0.9), 0.6) * glit * (1.6 + uTreble * 1.6);
     color += mirror * kick * 0.45;
     pattern = clamp(foam + glit, 0.0, 1.0) * 0.7;
   }
@@ -147,7 +147,7 @@ void main() {
     float aim = max(dot(rel / len, beamDir), 0.0);
     float wedge = pow(aim, 30.0) * exp(-len * 1.1);
     wedge *= smoothstep(-0.3, 0.1, uv.y);
-    color += mix(uAccentColour, vec3(1.0), 0.4) * wedge * (0.5 + uEnergy * 0.7 + kick * 0.6);
+    color += mix(uAccentColour, palette(0.85), 0.45) * wedge * (0.5 + uEnergy * 0.7 + kick * 0.6);
     pattern = max(pattern, wedge * 0.8);
   }
 
@@ -173,7 +173,7 @@ void main() {
       suv.x *= uResolution.x / uResolution.y;
       float m = exp(-dot(uv - suv, uv - suv) * 2400.0);
       float fade = (1.0 - hop) * (0.4 + uTreble * 1.2);
-      color += mix(uPrimaryColour, vec3(1.0), 0.4) * m * fade * 1.8;
+      color += mix(uPrimaryColour, palette(0.8), 0.45) * m * fade * 1.8;
       pattern = max(pattern, m * fade);
     }
   }

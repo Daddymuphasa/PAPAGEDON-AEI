@@ -112,7 +112,7 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.1 - uBass * 0.05 - uEnergy * 0.03;
+  uv *= 1.0 - kick * 0.16 - uBass * 0.09 - uEnergy * 0.06;
   float t = uTime * (0.3 + uEnergy * 0.2) * uMotion;
   int steps = int(mix(20.0, 48.0, uDetail));
   int embers = int(mix(8.0, 20.0, uDetail));
@@ -225,7 +225,7 @@ void main() {
         suv.x *= uResolution.x / uResolution.y;
         float flick = 0.6 + 0.4 * sin(uTime * 40.0 + float(s) * 3.0 + float(b));
         float m = exp(-dot(uv - suv, uv - suv) * 2600.0);
-        color += mix(vec3(1.0), uAccentColour, 0.35) * m * (0.8 + uTreble + kick * 1.4) * flick;
+        color += mix(palette(0.9), uAccentColour, 0.45) * m * (0.8 + uTreble + kick * 1.4) * flick;
         pattern = max(pattern, m * 0.7);
       }
     }

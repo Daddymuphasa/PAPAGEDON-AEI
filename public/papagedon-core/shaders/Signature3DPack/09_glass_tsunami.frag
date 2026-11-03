@@ -5,7 +5,7 @@ precision highp sampler2D;
 // Glass Tsunami - PAPAGEDON Signature3D Pack
 // Breaking wave reborn: twin curls, rainbow film shimmer, mist, moon
 // glitter on the water, glass shards tumbling in the tube, foam that
-// detonates white on every kick.
+// detonates on every kick.
 in vec2 vUV;
 out vec4 fragColor;
 
@@ -101,7 +101,7 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.1 - uBass * 0.05 - uEnergy * 0.03;
+  uv *= 1.0 - kick * 0.16 - uBass * 0.09 - uEnergy * 0.06;
   float t = uTime * (0.35 + uEnergy * 0.2) * uMotion;
   int steps = int(mix(20.0, 48.0, uDetail));
   int spray = int(mix(12.0, 30.0, uDetail));
@@ -126,7 +126,7 @@ void main() {
     if (dist > 28.0) break;
   }
 
-  vec3 moonTint = mix(uAccentColour, vec3(1.0), 0.55);
+  vec3 moonTint = mix(uAccentColour, palette(0.9), 0.6);
   vec3 color;
   float pattern = 0.0;
   if (hit.y < -0.5) {
@@ -178,7 +178,7 @@ void main() {
 
   // Mist boiling at the base.
   float mist = vnoise(uv * vec2(3.0, 6.0) + vec2(t * 0.2, 0.0)) * exp(-abs(uv.y + 0.55) * 3.0);
-  color += mix(uPrimaryColour, vec3(1.0), 0.3) * mist * (0.25 + uEnergy * 0.3);
+  color += mix(uPrimaryColour, palette(0.75), 0.35) * mist * (0.25 + uEnergy * 0.3);
 
   // Spray thrown off the lip.
   float aspect = uResolution.x / uResolution.y;
@@ -219,7 +219,7 @@ void main() {
       float qb = abs(lp.x) + abs(lp.y) - sz;
       float body = 1.0 - smoothstep(-0.006, 0.006, qb);
       float glint = pow(clamp(1.0 - length(lp) / max(sz, 0.0001), 0.0, 1.0), 2.0) * (0.6 + uTreble * 2.0);
-      color += (palette(h1) * body * 0.7 + vec3(1.0) * glint * body) * (0.7 + kick * 0.6);
+      color += (palette(h1) * body * 0.7 + mix(uAccentColour, palette(0.9), 0.5) * glint * body) * (0.7 + kick * 0.6);
       pattern = max(pattern, body * 0.6);
     }
   }

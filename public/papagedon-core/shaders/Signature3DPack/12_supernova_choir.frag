@@ -63,12 +63,13 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.06 - uBass * 0.03;
+  uv *= 1.0 - kick * 0.14 - uBass * 0.07 - uEnergy * 0.05;
   float t = uTime * (0.4 + uEnergy * 0.25) * uMotion;
   int streaks = int(mix(24.0, 60.0, uDetail));
   float aspect = uResolution.x / uResolution.y;
 
   vec3 color = uBackground * 0.4;
+  float pattern = 0.0;
 
   // Faint remnant nebula.
   float neb = vnoise(uv * 1.6 + vec2(t * 0.04, -t * 0.03));
@@ -95,6 +96,7 @@ void main() {
     float sp = texture(uSpectrum, vec2(clamp(0.2 + float(s) * 0.3, 0.0, 1.0), 0.5)).r;
     vec3 scol = palette(clamp(0.45 + float(s) * 0.2 + sp * 0.3, 0.0, 1.0));
     color += scol * shell * (0.7 + sp * 1.6 + kick * 1.6);
+    pattern = max(pattern, shell);
   }
 
   // Ejecta streaks racing outward.
@@ -117,18 +119,21 @@ void main() {
     float sp = texture(uSpectrum, vec2(fract(h1 * 4.0), 0.5)).r;
     vec3 ecol = palette(clamp(h3 * 0.6 + sp * 0.5, 0.0, 1.0));
     color += ecol * (head * (0.6 + uTreble * 1.8) + tail * (0.35 + sp)) * (1.0 - erad * 0.3);
+    pattern = max(pattern, clamp(head + tail, 0.0, 1.0));
   }
 
   // Remnant core.
   float coreD = length(uv);
   color += mix(uPrimaryColour, uAccentColour, clamp(uEnergy, 0.0, 1.0)) * (0.5 + kick * 2.2 + uBass * 0.7) * exp(-coreD * coreD * 8.0);
+  pattern = max(pattern, exp(-coreD * coreD * 8.0));
 
   float luma = dot(color, vec3(0.299, 0.587, 0.114));
   float sat = clamp(uSaturationBase + 0.25 + uIntensity * uSaturationScale, 0.0, 1.3);
   color = mix(vec3(luma), color, sat);
-  color *= (0.45 + uEnergy * 0.9) * uMasterExposure;
-  color += uBackground * 0.2;
-  color += color * kick * 0.5;
+  color *= (0.16 + uEnergy * 1.1) * uMasterExposure * (0.5 + 0.75 * pattern + 0.3);
+  color += uBackground * (1.0 - pattern) * 1.4;
+  color += color * kick * 0.9;
+  color += color * uBass * 0.3;
   color += color * uGlow * uMasterGlow;
   color += color * color * uBloom;
   color *= mix(vec3(0.9, 1.0, 1.1), vec3(1.1, 1.0, 0.9), clamp(uMood, 0.0, 1.0));

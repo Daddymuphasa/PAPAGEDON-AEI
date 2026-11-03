@@ -62,13 +62,15 @@ vec3 aces(vec3 x) {
 float fbm(vec2 p, int oct) {
   float s = 0.0;
   float a = 0.5;
+  float norm = 0.0;
   for (int i = 0; i < 5; i++) {
     if (i >= oct) break;
     s += a * vnoise(p);
+    norm += a;
     p = p * 2.03 + vec2(1.7, 9.2);
     a *= 0.5;
   }
-  return s;
+  return s / max(norm, 0.0001);
 }
 
 // Liquid height: swell body plus an expanding kick ring.
@@ -97,7 +99,7 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.05 - uBass * 0.03;
+  uv *= 1.0 - kick * 0.14 - uBass * 0.07 - uEnergy * 0.05;
   float t = uTime * (0.3 + uEnergy * 0.2) * uMotion;
   int oct = int(mix(2.0, 4.0, uDetail));
   int steps = int(mix(20.0, 48.0, uDetail));
@@ -122,8 +124,10 @@ void main() {
   }
 
   vec3 color;
+  float pattern = 0.0;
   if (hitT < 0.0) {
     color = envMap(rd, t);
+    pattern = 0.25;
   } else {
     vec3 p = ro + rd * hitT;
     float e = 0.08;
@@ -142,16 +146,18 @@ void main() {
     float fres = 0.04 + 0.96 * pow(1.0 - max(dot(-rd, n), 0.0), 5.0);
     color = mix(mix(deep, glass, 0.55), mirror, fres);
     float crest = smoothstep(0.28, 0.5, hC + uBass * 0.15);
-    color = mix(color, mix(uAccentColour, vec3(1.0), 0.4), crest * 0.5);
+    color = mix(color, mix(uAccentColour, palette(0.85), 0.45), crest * 0.5);
     color += mirror * kick * 0.4;
+    pattern = clamp(crest + fres * 0.7, 0.0, 1.0);
   }
 
   float luma = dot(color, vec3(0.299, 0.587, 0.114));
   float sat = clamp(uSaturationBase + 0.25 + uIntensity * uSaturationScale, 0.0, 1.3);
   color = mix(vec3(luma), color, sat);
-  color *= (0.5 + uEnergy * 0.9) * uMasterExposure;
-  color += uBackground * 0.22;
-  color += color * kick * 0.5;
+  color *= (0.16 + uEnergy * 1.1) * uMasterExposure * (0.5 + 0.75 * pattern + 0.3);
+  color += uBackground * (1.0 - pattern) * 1.4;
+  color += color * kick * 0.9;
+  color += color * uBass * 0.3;
   color += color * uGlow * uMasterGlow;
   color += color * color * uBloom;
   color *= mix(vec3(0.9, 1.0, 1.1), vec3(1.1, 1.0, 0.9), clamp(uMood, 0.0, 1.0));

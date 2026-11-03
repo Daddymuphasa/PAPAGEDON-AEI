@@ -59,13 +59,14 @@ void main() {
   vec2 uv = vUV * 2.0 - 1.0;
   uv.x *= uResolution.x / uResolution.y;
   float kick = uBeat * uBeat;
-  uv *= 1.0 - kick * 0.05 - uBass * 0.02;
+  uv *= 1.0 - kick * 0.14 - uBass * 0.07 - uEnergy * 0.05;
   float t = uTime * (0.4 + uEnergy * 0.25) * uMotion;
   int count = int(mix(14.0, 40.0, uDetail));
   float aspect = uResolution.x / uResolution.y;
 
   float g = clamp(0.5 - 0.5 * uv.y * 0.5, 0.0, 1.0);
   vec3 color = uBackground * (0.35 + 0.65 * g);
+  float pattern = 0.0;
   vec2 sg = uv * 2.5;
   float st = hash21(floor(sg));
   float star = smoothstep(0.986, 1.0, st) * (0.3 + uTreble * 0.7);
@@ -108,15 +109,17 @@ void main() {
       scol += base * sp * uBass * 0.7;
       float alpha = body * clamp(persp * 0.75, 0.25, 1.0);
       color = mix(color, scol, alpha);
+      pattern = max(pattern, body);
     }
   }
 
   float luma = dot(color, vec3(0.299, 0.587, 0.114));
   float sat = clamp(uSaturationBase + 0.25 + uIntensity * uSaturationScale, 0.0, 1.3);
   color = mix(vec3(luma), color, sat);
-  color *= (0.5 + uEnergy * 0.9) * uMasterExposure;
-  color += uBackground * 0.2;
-  color += color * kick * 0.5;
+  color *= (0.16 + uEnergy * 1.1) * uMasterExposure * (0.5 + 0.75 * pattern + 0.3);
+  color += uBackground * (1.0 - pattern) * 1.4;
+  color += color * kick * 0.9;
+  color += color * uBass * 0.3;
   color += color * uGlow * uMasterGlow;
   color += color * color * uBloom;
   color *= mix(vec3(0.9, 1.0, 1.1), vec3(1.1, 1.0, 0.9), clamp(uMood, 0.0, 1.0));
