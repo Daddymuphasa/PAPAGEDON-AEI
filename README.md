@@ -114,3 +114,7 @@ bridge mappings, GLSL contract scans, director logic (planner, verify,
 credits, transitions, vision, track), flyer/vision/visuals units, and a
 repo hygiene scan (no web3, depth-studio, or live-site residue). GLSL
 compiles only in a browser — the in-app **Shader check** covers that.
+
+## License
+
+MIT © 2026 PAPAGEDON Labs. See LICENSE.
