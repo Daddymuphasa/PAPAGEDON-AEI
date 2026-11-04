@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
-// Edge dock: a side column that slides away to a slim edge tab after a
-// quiet spell, leaving the stage fully visible. Any interaction inside
-// re-arms the timer; the tab always reopens.
+// Edge dock: a side column that glides away to a slim edge tab after a
+// quiet spell, leaving the stage fully visible. Resting the mouse near
+// either screen edge (or tapping the tab) glides it back out; any
+// interaction inside re-arms the timer.
 export const DOCK_IDLE_MS = 3000;
 
 export default function Dock({
@@ -31,26 +32,30 @@ export default function Dock({
   const poke = useCallback(() => {
     if (open) arm();
   }, [open, arm]);
-  if (!open) {
-    return (
+  return (
+    <>
+      <div
+        className={`pg-edge pg-edge-${side}`}
+        aria-hidden="true"
+        onPointerEnter={() => setOpen(true)}
+      />
+      <div
+        className={`pg-dock pg-dock-${side}${open ? '' : ' is-closed'}`}
+        onPointerDownCapture={poke}
+        onPointerEnter={poke}
+        onFocusCapture={poke}
+      >
+        {children}
+      </div>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`pg-tab pg-tab-${side}`}
+        className={`pg-tab pg-tab-${side}${open ? ' is-hidden' : ''}`}
         aria-label={`Open ${label}`}
+        tabIndex={open ? -1 : 0}
       >
         {label}
       </button>
-    );
-  }
-  return (
-    <div
-      className={`pg-dock pg-dock-${side}`}
-      onPointerDownCapture={poke}
-      onPointerEnter={poke}
-      onFocusCapture={poke}
-    >
-      {children}
-    </div>
+    </>
   );
 }
