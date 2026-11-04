@@ -20,7 +20,9 @@ import { PapagedonRenderer } from "@/lib/papagedon/renderer";
 import { ASSET_BASE, catalog, type PackDef, type ThemeDef } from "@/lib/papagedon/catalog";
 import { withBasePath } from "@/basePath";
 import DirectorPanel, { type PanelImage } from "@/components/director/DirectorPanel";
+import Dock from "@/components/Dock";
 import Drawer from "@/components/Drawer";
+import Guide from "@/components/Guide";
 import FlyerPanel from "@/components/director/FlyerPanel";
 import { CATALOG } from "../../../shaders/catalog";
 import { ShowDirector, type DirectorEvent, type DirectorView } from "@/director/showDirector";
@@ -198,6 +200,7 @@ function PapagedonStage() {
   const [diag, setDiag] = useState<{ running: boolean; checked: number; total: number; failures: string[] } | null>(null);
   const [diag3d, setDiag3d] = useState<{ running: boolean; checked: number; total: number; failures: string[] } | null>(null);
   const [blackout, setBlackout] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
 
   const shader = pack.shaders[Math.min(shaderIndex, pack.shaders.length - 1)];
   const theme = useMemo(() => flyerTheme ?? themeById(themeId) ?? catalog.themes[0], [flyerTheme, themeId]);
@@ -672,6 +675,15 @@ function PapagedonStage() {
     };
   }, [generatedCount]);
 
+  // ── First-run guide (once; ? reopens) ──
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("aei-guide-seen") === "1") setShowGuide(false);
+    } catch {
+      /* private mode: show it */
+    }
+  }, []);
+
   // ── Mock/live mode badge ──
   useEffect(() => {
     fetch(withBasePath("/api/mode"))
@@ -1141,21 +1153,14 @@ function PapagedonStage() {
           <Link href={withBasePath("/")} className="flex items-center gap-3" aria-label="PAPAGEDON home">
             <BrandLogo compact />
           </Link>
+          <button type="button" className="pg-btn" onClick={() => setShowGuide(true)} aria-label="Show guide">?</button>
         </nav>
 
         {glError && (
           <div className="mx-4 rounded-lg border border-red-400/40 bg-red-950/60 p-3 text-sm md:mx-6">{glError}</div>
         )}
 
-        {!source && !eventTheme && (
-          <div className="mx-4 mt-3 rounded-lg border border-line bg-black/30 p-3 text-[12px] md:mx-6">
-            <span className="font-heading text-[14px]">Start the show in 3 steps:</span>{" "}
-            <span className="text-muted">1 · Play some music below&ensp;2 · Pick a look&ensp;3 · Add your flyer (optional)</span>
-          </div>
-        )}
-
-        <div className="flex min-h-0 flex-1 flex-col justify-between gap-3 overflow-y-auto px-4 pb-4 md:flex-row md:items-end md:px-6">
-          <div className="flex w-full flex-col gap-3 md:w-[300px]">
+        <Dock side="left" label="Controls">
             <Drawer title="Music in">
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
                 <label className={`pg-btn justify-center ${source === "file" ? "pg-btn-on" : ""}`}>
@@ -1298,9 +1303,10 @@ function PapagedonStage() {
                 Keys: Space play/pause · [ ] look · 1–9 colours · A auto · H hide.
               </p>
             </Drawer>
-          </div>
+        </Dock>
 
-          <div className="w-full md:w-[360px]" data-panel="director">
+        <Dock side="right" label="Director">
+          <div data-panel="director">
             <DirectorPanel
               control={{
                 auto: directorAuto,
@@ -1327,7 +1333,19 @@ function PapagedonStage() {
               }}
             />
           </div>
-        </div>
+        </Dock>
+        {showGuide && (
+          <Guide
+            onEnter={() => {
+              try {
+                localStorage.setItem("aei-guide-seen", "1");
+              } catch {
+                /* private mode: just hide it */
+              }
+              setShowGuide(false);
+            }}
+          />
+        )}
       </div>
       <style>{`@keyframes pgxBeat { from { opacity: 1; transform: scale(1.6); } to { opacity: .25; transform: scale(1); } }`}</style>
     </div>

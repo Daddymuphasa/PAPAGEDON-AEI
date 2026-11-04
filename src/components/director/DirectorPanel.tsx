@@ -12,8 +12,6 @@ import {
 import { getDecisions, subscribeDecisions, type DecisionEntry } from '@/director/decisionLog';
 import type { DirectorView } from '@/director/showDirector';
 import type { EnergyTag } from '@/types';
-import { CATALOG } from '../../../shaders/catalog';
-import { ORIGINALS } from '@/vision3d/originals';
 import Drawer from '../Drawer';
 
 export interface PanelImage {
@@ -118,24 +116,6 @@ export default function DirectorPanel({ control }: { control: DirectorControl })
         )}
       </Drawer>
 
-      <Drawer
-        title="What happened"
-        badge={<span className="font-mono text-[10px] text-subtle">{decisions.length}</span>}
-        defaultOpen={false}
-      >
-        {log.length === 0 && <p className="text-[11px] text-subtle">Nothing yet — the log fills as the show runs.</p>}
-        <ol className="grid gap-1.5">
-          {log.map((e) => (
-            <li key={e.id} className="text-[11px] leading-snug" title={`${e.input} → ${e.result}`}>
-              <span className="font-mono text-subtle">{e.time}</span>{' '}
-              <span className="font-mono text-accent">[{modelBadge(e.model)}]</span>{' '}
-              <span>{e.result}</span>
-              {e.verify && !e.verify.pass && <span className="text-red-300"> ✗ {e.verify.reason}</span>}
-            </li>
-          ))}
-        </ol>
-      </Drawer>
-
       <Drawer title="Meta usage" defaultOpen={false}>
         <div className="mb-2 flex items-center justify-between">
           <span className="text-[12px]">
@@ -219,37 +199,22 @@ export default function DirectorPanel({ control }: { control: DirectorControl })
         )}
       </Drawer>
 
-      <Drawer title="Checks" defaultOpen={false}>
-        <button className="pg-btn w-full justify-center" disabled={control.diag?.running} onClick={control.onCompileAll}>
-          {control.diag?.running ? `Checking ${control.diag.checked}/${control.diag.total}…` : `Check all ${CATALOG.length} looks`}
-        </button>
-        {control.diag && !control.diag.running && control.diag.failures.length === 0 && control.diag.checked > 0 && (
-          <p className="mt-1 text-[11px] text-accent">
-            {control.diag.checked}/{control.diag.total} looks ready
-          </p>
-        )}
-        {control.diag && control.diag.failures.length > 0 && (
-          <ol className="mt-1 grid gap-1 text-[11px] text-red-300">
-            {control.diag.failures.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ol>
-        )}
-        <button className="pg-btn mt-2 w-full justify-center" disabled={control.diag3d?.running} onClick={control.onCheck3D}>
-          {control.diag3d?.running ? `Checking ${control.diag3d.checked}/${control.diag3d.total}…` : `Check all ${ORIGINALS.length} 3D scenes`}
-        </button>
-        {control.diag3d && !control.diag3d.running && control.diag3d.failures.length === 0 && control.diag3d.checked > 0 && (
-          <p className="mt-1 text-[11px] text-accent">
-            {control.diag3d.checked}/{control.diag3d.total} 3D scenes ready
-          </p>
-        )}
-        {control.diag3d && control.diag3d.failures.length > 0 && (
-          <ol className="mt-1 grid gap-1 text-[11px] text-red-300">
-            {control.diag3d.failures.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ol>
-        )}
+      <Drawer
+        title="What happened"
+        badge={<span className="font-mono text-[10px] text-subtle">{decisions.length}</span>}
+        defaultOpen={false}
+      >
+        {log.length === 0 && <p className="text-[11px] text-subtle">Nothing yet — the log fills as the show runs.</p>}
+        <ol className="grid gap-1.5">
+          {log.map((e) => (
+            <li key={e.id} className="text-[11px] leading-snug" title={`${e.input} → ${e.result}`}>
+              <span className="font-mono text-subtle">{e.time}</span>{' '}
+              <span className="font-mono text-accent">[{modelBadge(e.model)}]</span>{' '}
+              <span>{e.result}</span>
+              {e.verify && !e.verify.pass && <span className="text-red-300"> ✗ {e.verify.reason}</span>}
+            </li>
+          ))}
+        </ol>
       </Drawer>
     </div>
   );
