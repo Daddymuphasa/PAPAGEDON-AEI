@@ -9,7 +9,7 @@ import { POST as shader } from './visuals/shader/route';
 import { POST as generate } from './visuals/generate/route';
 import { POST as segment } from './vision/segment/route';
 import { GET as mode } from './mode/route';
-import type { EventTheme, PlannerInput } from '../../../types';
+import type { EventTheme, PlannerInput } from '../../types';
 
 function req(body: unknown): Request {
   return new Request('http://localhost/x', {

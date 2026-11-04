@@ -517,7 +517,7 @@ export class ShowDirector {
     if (now - this.lastClimaxAt < CLIMAX_GUARD_S) return;
     this.lastClimaxAt = now;
     // Slams and mapped drops read as drops in the music context.
-    if (kind !== 'drop') this.recentEvents = [...this.recentEvents, { e: 'drop', t: now }].slice(-12);
+    if (kind !== 'drop') this.recentEvents = [...this.recentEvents, { e: 'drop' as AudioEvent, t: now }].slice(-12);
     this.arc = 'peak';
     this.opts.onScene({ t: 'hit', flash: Math.min(1, 0.5 + f.energy * 0.5), boost: 0.3 });
     // M7: climaxes cut straight to the drop-tagged artwork.
