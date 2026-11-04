@@ -675,15 +675,6 @@ function PapagedonStage() {
     };
   }, [generatedCount]);
 
-  // ── First-run guide (once; ? reopens) ──
-  useEffect(() => {
-    try {
-      if (localStorage.getItem("aei-guide-seen") === "1") setShowGuide(false);
-    } catch {
-      /* private mode: show it */
-    }
-  }, []);
-
   // ── Mock/live mode badge ──
   useEffect(() => {
     fetch(withBasePath("/api/mode"))
@@ -1334,18 +1325,7 @@ function PapagedonStage() {
             />
           </div>
         </Dock>
-        {showGuide && (
-          <Guide
-            onEnter={() => {
-              try {
-                localStorage.setItem("aei-guide-seen", "1");
-              } catch {
-                /* private mode: just hide it */
-              }
-              setShowGuide(false);
-            }}
-          />
-        )}
+        {showGuide && <Guide onEnter={() => setShowGuide(false)} />}
       </div>
       <style>{`@keyframes pgxBeat { from { opacity: 1; transform: scale(1.6); } to { opacity: .25; transform: scale(1); } }`}</style>
     </div>
