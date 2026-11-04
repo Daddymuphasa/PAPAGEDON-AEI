@@ -91,7 +91,7 @@ function neonTunnel(aspect: number): Built {
   }));
   for (let i = 0; i < STREAKS; i++) streaks.setColorAt(i, color.setHSL(Math.random() < 0.5 ? 0.85 : 0.52, 1, 0.6));
   scene.add(streaks);
-  const dust = dustPoints(2500, new THREE.Vector3(6, 6, RINGS * GAP), 0x88ccff, 0.05);
+  const dust = dustPoints(1500, new THREE.Vector3(6, 6, RINGS * GAP), 0x88ccff, 0.05);
   scene.add(dust);
   const m4 = new THREE.Matrix4();
   const q = new THREE.Quaternion();
@@ -148,7 +148,7 @@ function particleGalaxy(aspect: number): Built {
   scene.background = new THREE.Color(0x01010a);
   scene.fog = new THREE.FogExp2(0x01010a, 0.01);
   const camera = new THREE.PerspectiveCamera(60, aspect, 0.1, 400);
-  const N = 60000;
+  const N = 32000;
   const ARMS = 4;
   const g = new THREE.BufferGeometry();
   const pos = new Float32Array(N * 3);
@@ -206,7 +206,7 @@ function particleGalaxy(aspect: number): Built {
   scene.add(new THREE.Points(g, mat));
   const core = new THREE.Mesh(new THREE.SphereGeometry(1.4, 32, 16), new THREE.MeshBasicMaterial({ color: 0xffe2b0 }));
   scene.add(core);
-  const stars = dustPoints(4000, new THREE.Vector3(300, 300, 300), 0xffffff, 0.35);
+  const stars = dustPoints(2500, new THREE.Vector3(300, 300, 300), 0xffffff, 0.35);
   scene.add(stars);
   return {
     scene,
@@ -236,7 +236,7 @@ function audioTerrain(aspect: number): Built {
   const FOG = new THREE.Color(0x12021c);
   scene.background = FOG;
   const camera = new THREE.PerspectiveCamera(70, aspect, 0.1, 300);
-  const geo = new THREE.PlaneGeometry(220, 220, 220, 220);
+  const geo = new THREE.PlaneGeometry(220, 220, 150, 150);
   geo.rotateX(-Math.PI / 2);
   const mat = new THREE.ShaderMaterial({
     uniforms: {
@@ -281,7 +281,7 @@ function audioTerrain(aspect: number): Built {
   );
   sun.position.set(0, 18, -150);
   scene.add(sun);
-  const motes = dustPoints(3000, new THREE.Vector3(80, 30, 160), 0xff9ef0, 0.12);
+  const motes = dustPoints(2000, new THREE.Vector3(80, 30, 160), 0xff9ef0, 0.12);
   motes.position.set(0, 8, -60);
   scene.add(motes);
   let scroll = 0;
@@ -371,7 +371,7 @@ function lightCathedral(aspect: number): Built {
   );
   rose.position.set(0, 12, -PAIRS * SPACING - 4);
   scene.add(rose);
-  const dust = dustPoints(5000, new THREE.Vector3(14, 20, PAIRS * SPACING), 0xffe6c0, 0.06);
+  const dust = dustPoints(3000, new THREE.Vector3(14, 20, PAIRS * SPACING), 0xffe6c0, 0.06);
   dust.position.set(0, 5, (-PAIRS * SPACING) / 2);
   scene.add(dust);
   const nave = PAIRS * SPACING - 20;
@@ -414,9 +414,15 @@ const BUILDERS: Record<ImmersiveId, (aspect: number) => Built> = {
 
 export const IMMERSIVE_BUILDERS = BUILDERS;
 
+export interface ImmersiveQuality {
+  dprCap: number;
+  bloomScale: number;
+}
+
 export interface ImmersiveViz {
   setScene: (id: ImmersiveId) => void;
   render: (s: ImmersiveSignals) => void;
+  setQuality: (q: Partial<ImmersiveQuality>) => void;
   dispose: () => void;
 }
 
@@ -432,9 +438,15 @@ export function createImmersiveVisualizer(canvas: HTMLCanvasElement): ImmersiveV
   const start = last;
   let w = 0;
   let h = 0;
+  const quality: ImmersiveQuality = { dprCap: 1, bloomScale: 1 };
+
+  function setQuality(q: Partial<ImmersiveQuality>): void {
+    if (q.dprCap !== undefined) quality.dprCap = q.dprCap;
+    if (q.bloomScale !== undefined) quality.bloomScale = q.bloomScale;
+  }
 
   const resize = (): void => {
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
+    const dpr = Math.min(window.devicePixelRatio || 1, quality.dprCap);
     const cw = canvas.clientWidth || window.innerWidth;
     const ch = canvas.clientHeight || window.innerHeight;
     if (cw === w && ch === h) return;
@@ -471,7 +483,8 @@ export function createImmersiveVisualizer(canvas: HTMLCanvasElement): ImmersiveV
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     built.update((now - start) / 1000, dt, s);
-    bloom.strength = built.bloom * (0.8 + s.energy * 0.6 + s.beat * 0.4);
+    bloom.enabled = quality.bloomScale > 0;
+    bloom.strength = built.bloom * (0.8 + s.energy * 0.6 + s.beat * 0.4) * quality.bloomScale;
     composer.render(dt);
   }
 
@@ -482,5 +495,5 @@ export function createImmersiveVisualizer(canvas: HTMLCanvasElement): ImmersiveV
     renderer.dispose();
   }
 
-  return { setScene, render, dispose };
+  return { setScene, render, setQuality, dispose };
 }

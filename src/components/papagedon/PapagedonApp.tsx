@@ -17,6 +17,8 @@ import { AutoSensitivity, type SensitivityMode } from "@/inputs/audio/autoSensit
 import { ExperienceGraph, type ExperienceGraphOutput } from "@/lib/papagedon/experienceGraph";
 import { AudioEngine, type AudioSourceKind, type InputDevice } from "@/lib/papagedon/audioSources";
 import { PapagedonRenderer } from "@/lib/papagedon/renderer";
+import { QUALITY_LEVELS, QUALITY_NAMES, QualityGovernor } from "@/lib/papagedon/quality";
+import { PACING_S, type PacingName } from "@/director/showLogic";
 import { ASSET_BASE, catalog, type PackDef, type ThemeDef } from "@/lib/papagedon/catalog";
 import { withBasePath } from "@/basePath";
 import DirectorPanel, { type PanelImage } from "@/components/director/DirectorPanel";
@@ -97,6 +99,7 @@ function flyerPlainError(err: unknown): string {
 
 type Hud = { s: ExperienceSignals; g: ExperienceGraphOutput };
 type CameraScene = { label: string; detail: string; confidence: number };
+type QualityMode = "auto" | "high" | "balanced" | "lite";
 
 function Meter({ label, value }: { label: string; value: number }) {
   return (
@@ -154,11 +157,18 @@ function PapagedonStage() {
   const packRef = useRef<PackDef>(defaultPack);
   const shaderIndexRef = useRef(0);
   const generatedIdRef = useRef<string | null>(null);
+  const governorRef = useRef(new QualityGovernor());
+  const qualityModeRef = useRef<QualityMode>("auto");
+  const appliedLevelRef = useRef(-1);
+  const xfadeScaleRef = useRef(1);
+  const pacingRef = useRef<PacingName>("normal");
 
   const [glError, setGlError] = useState<string | null>(null);
   const [pack, setPack] = useState<PackDef>(defaultPack);
   const [shaderIndex, setShaderIndex] = useState(0);
-  const [quality, setQuality] = useState(1);
+  const [qualityMode, setQualityMode] = useState<QualityMode>("auto");
+  const [qualityLevel, setQualityLevel] = useState(1);
+  const [pacing, setPacing] = useState<PacingName>("normal");
   const [themeId, setThemeId] = useState<string>(defaultPack.recommendedTheme ?? "aurora");
   const [shaderError, setShaderError] = useState<string | null>(null);
   const [autoCycle, setAutoCycle] = useState(false);
@@ -207,6 +217,8 @@ function PapagedonStage() {
 
   // Render-loop mirrors (the loop and the director callback read refs).
   sensModeRef.current = sensMode;
+  qualityModeRef.current = qualityMode;
+  pacingRef.current = pacing;
   packRef.current = pack;
   shaderIndexRef.current = shaderIndex;
   generatedIdRef.current = generatedId;
@@ -254,6 +266,27 @@ function PapagedonStage() {
       } else {
         prevSignalsRef.current = { energy: signals.energy, beat: signals.beat };
       }
+      // Auto quality: one governor step per frame, applied to every
+      // renderer only when the level actually changes.
+      const qMode = qualityModeRef.current;
+      const qLevel = qMode === "auto" ? governorRef.current.update(now) : qMode === "high" ? 0 : qMode === "balanced" ? 1 : 2;
+      if (qLevel !== appliedLevelRef.current) {
+        appliedLevelRef.current = qLevel;
+        const q = QUALITY_LEVELS[qLevel];
+        ra!.maxDpr = q.glDpr;
+        ra!.detail = q.detail;
+        rb!.maxDpr = q.glDpr;
+        rb!.detail = q.detail;
+        viz3DRef.current?.setQuality({ dprCap: q.hexDpr, minFrameMs: q.hexMinFrameMs });
+        viz4DRef.current?.setQuality({ dprCap: q.immDpr, bloomScale: q.bloom });
+        xfadeScaleRef.current = q.xfadeScale;
+        setQualityLevel((prev) => (prev === qLevel ? prev : qLevel));
+      }
+      // Parked canvases are visibility:hidden so the compositor skips
+      // them; styles only rewrite on an actual switch.
+      const setVis = (c: HTMLCanvasElement | null, v: "visible" | "hidden") => {
+        if (c && c.style.visibility !== v) c.style.visibility = v;
+      };
       // The visual layer renders the same live engine signals the HUD meters
       // read — no attenuation — so the stage reacts exactly like live /app.
       const selPack = packRef.current;
@@ -264,9 +297,17 @@ function PapagedonStage() {
       const entry = originalId ? originalEntry(originalId) : undefined;
       if (originalId && entry?.kind === "immersive" && canvas4D) {
         driveImmersive(originalId, signals, canvas4D, canvasA, canvasB, canvas3D);
+        setVis(canvas4D, "visible");
+        setVis(canvas3D, "hidden");
+        setVis(canvasA, "hidden");
+        setVis(canvasB, "hidden");
       } else if (originalId && canvas3D) {
         if (canvas4D) canvas4D.style.opacity = "0";
         driveOriginals(originalId, signals, canvas3D, canvasA, canvasB);
+        setVis(canvas3D, "visible");
+        setVis(canvas4D, "hidden");
+        setVis(canvasA, "hidden");
+        setVis(canvasB, "hidden");
       } else {
         if (canvas3D) canvas3D.style.opacity = "0";
         if (canvas4D) canvas4D.style.opacity = "0";
@@ -287,6 +328,12 @@ function PapagedonStage() {
             xfadeRef.current = null;
           }
         }
+        const frontCanvas = frontIsARef.current ? canvasA : canvasB;
+        const backCanvas = frontIsARef.current ? canvasB : canvasA;
+        setVis(frontCanvas, "visible");
+        setVis(backCanvas, xfadeRef.current ? "visible" : "hidden");
+        setVis(canvas3D, "hidden");
+        setVis(canvas4D, "hidden");
       }
       if (now - lastHud > 100) {
         lastHud = now;
@@ -349,11 +396,6 @@ function PapagedonStage() {
     if (rendererRef.current) rendererRef.current.tranceMode = t;
     if (rendererBRef.current) rendererBRef.current.tranceMode = t;
   }, [pack]);
-
-  useEffect(() => {
-    if (rendererRef.current) rendererRef.current.detail = quality;
-    if (rendererBRef.current) rendererBRef.current.detail = quality;
-  }, [quality]);
 
   const firstTheme = useRef(true);
   useEffect(() => {
@@ -669,6 +711,7 @@ function PapagedonStage() {
       onScene: handleSceneEvent,
       onUpdate: (v) => setDirectorView(v),
     });
+    d.setPacing(PACING_S[pacingRef.current]);
     directorRef.current = d;
     return () => {
       directorRef.current = null;
@@ -691,6 +734,7 @@ function PapagedonStage() {
     }
     let cancelled = false;
     const id = window.setInterval(async () => {
+      if (document.hidden) return;
       const canvas = cameraCanvasRef.current;
       if (!canvas || !shouldSampleCrowd(lastSamRef.current)) return;
       lastSamRef.current = Date.now();
@@ -835,7 +879,7 @@ function PapagedonStage() {
       xfadeRef.current = null;
       return;
     }
-    xfadeRef.current = { t0: performance.now(), ms: resolved.ms };
+    xfadeRef.current = { t0: performance.now(), ms: Math.max(60, Math.round(resolved.ms * xfadeScaleRef.current)) };
   };
 
   const applySceneLive = (intensity: number, speed: number, extra: [number, number, number]) => {
@@ -1261,10 +1305,28 @@ function PapagedonStage() {
               </div>
               <div className="mt-2 flex items-center gap-1.5">
                 <span className="pg-label">Quality</span>
-                <select className="pg-select" value={quality} onChange={(e) => setQuality(Number(e.target.value))} aria-label="Render quality">
-                  <option value={1}>High</option>
-                  <option value={0.65}>Medium</option>
-                  <option value={0.4}>Low</option>
+                <select className="pg-select" value={qualityMode} onChange={(e) => setQualityMode(e.target.value as QualityMode)} aria-label="Render quality">
+                  <option value="auto">Auto{qualityMode === "auto" ? ` · ${QUALITY_NAMES[qualityLevel]}` : ""}</option>
+                  <option value="high">High</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="lite">Lite</option>
+                </select>
+              </div>
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="pg-label">Pacing</span>
+                <select
+                  className="pg-select"
+                  value={pacing}
+                  onChange={(e) => {
+                    const p = e.target.value as PacingName;
+                    setPacing(p);
+                    directorRef.current?.setPacing(PACING_S[p]);
+                  }}
+                  aria-label="Scene pacing"
+                >
+                  <option value="calm">Calm · 12s</option>
+                  <option value="normal">Normal · 8s</option>
+                  <option value="wild">Wild · 5s</option>
                 </select>
               </div>
               {shaderError && <p className="mt-1 text-[11px] text-red-300">{shaderError}</p>}

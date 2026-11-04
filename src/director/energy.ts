@@ -27,7 +27,11 @@ export class EnergyBuffer {
   push(t: number, energy: number): void {
     this.samples.push({ t, energy });
     const cutoff = t - LONG_S;
-    while (this.samples.length > 0 && this.samples[0].t < cutoff) this.samples.shift();
+    // One splice per push, not a shift per stale sample (4 pushes run
+    // every animation frame).
+    let cut = 0;
+    while (cut < this.samples.length && this.samples[cut].t < cutoff) cut += 1;
+    if (cut > 0) this.samples.splice(0, cut);
   }
 
   window(seconds: number, now: number): EnergySample[] {

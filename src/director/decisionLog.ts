@@ -26,7 +26,8 @@ function stamp(): string {
 
 export function logDecision(e: Omit<DecisionEntry, 'id' | 'time'>): DecisionEntry {
   const entry: DecisionEntry = { ...e, id: nextId++, time: stamp() };
-  entries = [...entries, entry].slice(-MAX_ENTRIES);
+  entries.push(entry);
+  if (entries.length > MAX_ENTRIES) entries.splice(0, entries.length - MAX_ENTRIES);
   for (const fn of listeners) fn();
   return entry;
 }

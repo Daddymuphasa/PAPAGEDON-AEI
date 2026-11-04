@@ -25,11 +25,17 @@ const silver = new THREE.Color(0xb0b7ba);
 const graphite = new THREE.Color(0x586065);
 const socketAccent = new THREE.Color(0xb0b7ba);
 
+export interface NanoHexQuality {
+  dprCap: number;
+  minFrameMs: number;
+}
+
 export interface NanoHexVisualizer {
   resize: () => void;
   render: (signals: OriginalSignals) => void;
   triggerImpact: (x?: number, z?: number, strength?: number) => void;
   setVariant: (id: string) => VisualizerPack;
+  setQuality: (q: Partial<NanoHexQuality>) => void;
   dispose: () => void;
 }
 
@@ -183,10 +189,17 @@ export function createNanoHexVisualizer(canvas: HTMLCanvasElement): NanoHexVisua
     if (impacts.length > 4) impacts.shift();
   }
 
+  const quality: NanoHexQuality = { dprCap: 1.25, minFrameMs: 20 };
+
+  function setQuality(q: Partial<NanoHexQuality>): void {
+    if (q.dprCap !== undefined) quality.dprCap = q.dprCap;
+    if (q.minFrameMs !== undefined) quality.minFrameMs = q.minFrameMs;
+  }
+
   function resize(): void {
     const rect = canvas.getBoundingClientRect();
     sculpturalModes.resize(rect.width, rect.height);
-    const ratio = Math.min(window.devicePixelRatio || 1, rect.width < 720 ? 1.25 : 1.5);
+    const ratio = Math.min(window.devicePixelRatio || 1, rect.width < 720 ? Math.min(1.25, quality.dprCap) : quality.dprCap);
     const width = Math.max(1, Math.floor(rect.width * ratio));
     const height = Math.max(1, Math.floor(rect.height * ratio));
 
@@ -206,7 +219,7 @@ export function createNanoHexVisualizer(canvas: HTMLCanvasElement): NanoHexVisua
 
   function render(signals: OriginalSignals): void {
     const now = performance.now();
-    if (now - lastFrame < (canvas.clientWidth < 720 ? 33 : 20)) return;
+    if (now - lastFrame < (canvas.clientWidth < 720 ? 33 : quality.minFrameMs)) return;
     const delta = Math.min(0.05, (now - lastFrame) / 1000 || 0.016);
     lastFrame = now;
     resize();
@@ -373,7 +386,7 @@ export function createNanoHexVisualizer(canvas: HTMLCanvasElement): NanoHexVisua
   }
   canvas.addEventListener('pointerdown', onPointerDown);
 
-  return { resize, render, triggerImpact, setVariant, dispose };
+  return { resize, render, triggerImpact, setVariant, setQuality, dispose };
 }
 
 function buildHexPositions(limit: number): PlatePosition[] {

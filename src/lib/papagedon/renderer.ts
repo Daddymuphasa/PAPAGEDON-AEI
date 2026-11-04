@@ -64,6 +64,8 @@ export class PapagedonRenderer {
   speed = 1;
   /** Render quality 0..1 driving uDetail (AEI addition). */
   detail = 1;
+  /** Pixel-ratio cap, driven by the quality governor (AEI addition). */
+  maxDpr = 1.25;
   /** DebugState::audioAttackRate default (Runtime sets it from InputLatency). */
   attackRate = 100;
   master = { brightness: 1, glow: 1, exposure: 1 };
@@ -138,7 +140,7 @@ export class PapagedonRenderer {
   render(signals: ExperienceSignals, graph: ExperienceGraphOutput, dtRaw: number) {
     const gl = this.gl;
     const canvas = gl.canvas as HTMLCanvasElement;
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.maxDpr);
     const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
     const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
     if (canvas.width !== w || canvas.height !== h) {

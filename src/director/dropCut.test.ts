@@ -1,5 +1,7 @@
-// Climax cuts: drops, 808 slams, and mapped drops always land a scene
-// change with a fast 250ms fade — never a stale scene on the hit.
+// Climax cuts: drops, 808 slams, and mapped drops always land their
+// punch (flash + beat boost), but a scene change has to be earned —
+// past the dwell, musically justified, and never against a manual
+// hold. Earned cuts ride a fast 250ms fade.
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import type { AudioFeatures, ShowPlan } from '../types';
 import { clearDecisions, getDecisions } from './decisionLog';
@@ -119,6 +121,64 @@ describe('climax cuts', () => {
     drive(d, t0, 8.1, 14, ramp);
     await flush();
     expect(fetchMock).toHaveBeenCalled();
+  });
+
+  test('a second drop inside the dwell punches in place without cutting', () => {
+    const { d, posts } = setup();
+    const t0 = 500000;
+    drive(d, t0, 0, 8, () => [0.3, 0.3]);
+    drive(d, t0, 8.1, 14, ramp);
+    drive(d, t0, 14.1, 15, () => [0.95, 0.95]);
+    expect(posts.filter((p) => p.t === 'scene')).toHaveLength(1);
+    drive(d, t0, 15.1, 17, () => [0.5, 0.5]);
+    drive(d, t0, 17.1, 18, () => [0.95, 0.95]);
+    expect(posts.filter((p) => p.t === 'scene')).toHaveLength(1);
+    expect(posts.filter((p) => p.t === 'hit')).toHaveLength(2);
+    expect(getDecisions().some((e) => e.input === 'drop detected' && e.result.includes('punch only'))).toBe(true);
+  });
+
+  test('a manual pick holds the scene through drops', () => {
+    const { d, posts } = setup();
+    const t0 = performance.now();
+    d.manual({ visualId: 'mid-groove' });
+    expect(posts.filter((p) => p.t === 'scene')).toHaveLength(1);
+    drive(d, t0, 0, 8, () => [0.3, 0.3]);
+    drive(d, t0, 8.1, 14, ramp);
+    drive(d, t0, 14.1, 15, () => [0.95, 0.95]);
+    expect(posts.filter((p) => p.t === 'scene')).toHaveLength(1);
+    expect(posts.some((p) => p.t === 'hit')).toBe(true);
+    expect(getDecisions().some((e) => e.result.includes('held your pick'))).toBe(true);
+  });
+
+  test('an 808 slam cuts a stale scene — and never repeats the live look', () => {
+    const { d, posts } = setup();
+    const t0 = 600000;
+    drive(d, t0, 0, 8, () => [0.3, 0.3]);
+    drive(d, t0, 8.1, 14, ramp);
+    drive(d, t0, 14.1, 15, () => [0.95, 0.95]);
+    drive(d, t0, 15.1, 31, () => [0.5, 0.3]);
+    drive(d, t0, 31.1, 32, () => [0.5, 0.95]);
+    const scenes = posts.filter((p) => p.t === 'scene');
+    expect(scenes).toHaveLength(2);
+    expect(scenes[0].visualId).toBe('peak-blast');
+    expect(scenes[1].visualId).not.toBe('peak-blast');
+    expect(scenes[1].transition).toEqual({ type: 'crossfade', durationMs: 250 });
+  });
+
+  test('pacing stretches the dwell: wild cuts where calm holds', () => {
+    const run = (dwell: number): number => {
+      const { d, posts } = setup();
+      d.setPacing(dwell);
+      const t0 = 500000 + dwell * 1000;
+      drive(d, t0, 0, 8, () => [0.3, 0.3]);
+      drive(d, t0, 8.1, 14, ramp);
+      drive(d, t0, 14.1, 15, () => [0.95, 0.95]);
+      drive(d, t0, 15.1, 19.5, () => [0.5, 0.5]);
+      drive(d, t0, 19.6, 20.5, () => [0.95, 0.95]);
+      return posts.filter((p) => p.t === 'scene').length;
+    };
+    expect(run(5)).toBe(2);
+    expect(run(12)).toBe(1);
   });
 
   test('stale drops leave the music context after the summary window', () => {

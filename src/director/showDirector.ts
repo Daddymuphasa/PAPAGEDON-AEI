@@ -30,10 +30,12 @@ import { isCapped, recordUsage } from './credit';
 import {
   BREAKDOWN_PHRASE_BEATS,
   MANUAL_HOLD_S,
+  MANUAL_SCENE_HOLD_S,
   MIN_SCENE_GAP_S,
   MAX_PLAN_RETRIES,
   PHRASE_BEATS,
   PLANNER_CADENCE_S,
+  STALE_SCENE_S,
   isPhraseBoundary,
   mapThemeToOpening,
   shouldCallPlanner,
@@ -156,6 +158,19 @@ export function withVisionGain(energy: number, motion: number): number {
   return clamp(energy + motion * VISION_ENERGY_GAIN, 0, 1);
 }
 
+// Climax-pick scoring mirrors the mock planner's criteria (keep the
+// keyword lists in sync with BAND_WORDS in meta/mock.ts).
+const CLIMAX_BAND_WORDS: Record<'bass' | 'mid' | 'high', string[]> = {
+  bass: ['bass', 'kick', 'beat', 'pulse', 'drop', 'shockwave', 'pump', 'heave', 'sub', '808', 'boombox', 'portal', 'tunnel', 'seismic'],
+  mid: ['mid', 'groove', 'ribbon', 'silk', 'velvet', 'flow', 'wave', 'liquid', 'tide', 'garden', 'mist'],
+  high: ['treble', 'high', 'laser', 'crystal', 'prism', 'star', 'neon', 'sparkle', 'shimmer', 'lattice', 'candle', 'glass'],
+};
+
+function packOf(visualId: string): string {
+  const i = visualId.indexOf('/');
+  return i >= 0 ? visualId.slice(0, i) : visualId;
+}
+
 function parseUsage(res: Response): ModelUsage {
   try {
     const raw = res.headers.get('x-aei-usage');
@@ -189,6 +204,11 @@ export class ShowDirector {
   private lastPlannerCall: number | null = null;
   private lastCadence: number | null = null;
   private lastSceneAt = -1e9;
+  // Scene dwell both cut paths honour (Normal pacing = MIN_SCENE_GAP_S).
+  private dwellS = MIN_SCENE_GAP_S;
+  // Last climax picks, so scored cuts never repeat a fresh look.
+  private lastClimaxIds: string[] = [];
+  private lastEaseT = 0;
   private plannerBusy = false;
   private capLogged = false;
   private manualUntil = 0;
@@ -365,11 +385,14 @@ export class ShowDirector {
     });
   }
 
-  // Manual override: applies now, holds the director briefly.
+  // Manual override: applies now and holds the director. A picked scene
+  // is the user driving, so it holds well past the dwell; a tweak holds
+  // briefly as before.
   manual(patch: Partial<LiveState> & { visualId?: string }): void {
     const now = performance.now();
-    this.manualUntil = now + (this.opts.manualHoldS ?? MANUAL_HOLD_S) * 1000;
     const switched = patch.visualId !== undefined && patch.visualId !== this.live.visualId;
+    const holdS = switched ? MANUAL_SCENE_HOLD_S : (this.opts.manualHoldS ?? MANUAL_HOLD_S);
+    this.manualUntil = now + holdS * 1000;
     this.live = { ...this.live, ...patch };
     if (switched) {
       this.pending = null;
@@ -426,6 +449,12 @@ export class ShowDirector {
     });
   }
 
+  // Pacing control: how long a scene breathes before any cut path may
+  // replace it (clamped so the stage can neither freeze nor strobe).
+  setPacing(dwellS: number): void {
+    this.dwellS = clamp(dwellS, 3, 20);
+  }
+
   frame(f: AudioFeatures, nowMs: number): void {
     const now = nowMs / 1000;
     this.lastF = { ...f };
@@ -457,11 +486,14 @@ export class ShowDirector {
     const held = nowMs < this.manualUntil;
     const phraseLen = this.arc === 'breakdown' ? BREAKDOWN_PHRASE_BEATS : PHRASE_BEATS;
     if (this.pending && !held && isPhraseBoundary(this.beatsSince, phraseLen)) {
-      this.executePending('phrase boundary');
+      this.executePending('phrase boundary', now);
     }
+    // The look glides every frame (no visible 2s stepping); the texture
+    // follow + log tick stays on the slow cadence.
+    if (!held) this.ease(now);
     if (!held && now - this.lastTweak >= TWEAK_INTERVAL_S) {
       this.lastTweak = now;
-      this.tweak(f);
+      this.tickLook(f);
     }
     if (
       !held &&
@@ -510,9 +542,12 @@ export class ShowDirector {
     }
   }
 
-  // Climax: a drop, 808 slam, or mapped drop always lands a scene cut
-  // with a fast fade. A waiting Muse plan wins; otherwise a local
-  // peak-energy pick cuts instantly so the hit never lands on a stale scene.
+  // Climax: a drop, 808 slam, or mapped drop always lands its punch
+  // (flash + beat boost + drop artwork), but a scene cut has to be
+  // earned: the dwell must have elapsed, the user must not be holding
+  // the scene, and the moment must be musical — a waiting Muse plan, a
+  // drop out of a build, an authoritative mapped drop, or a stale scene.
+  // Anything less punches in place, so the stage never strobes on a timer.
   private climax(kind: 'drop' | '808 slam' | 'mapped drop', f: AudioFeatures, now: number): void {
     if (now - this.lastClimaxAt < CLIMAX_GUARD_S) return;
     this.lastClimaxAt = now;
@@ -520,40 +555,107 @@ export class ShowDirector {
     if (kind !== 'drop') this.recentEvents = [...this.recentEvents, { e: 'drop' as AudioEvent, t: now }].slice(-12);
     this.arc = 'peak';
     this.opts.onScene({ t: 'hit', flash: Math.min(1, 0.5 + f.energy * 0.5), boost: 0.3 });
-    // M7: climaxes cut straight to the drop-tagged artwork.
+    // M7: climaxes punch straight to the drop-tagged artwork.
     const dropTex = pickTextureForTag('drop', this.textures);
     if (dropTex !== null) this.applyTexture(dropTex, this.texMix, `${kind} hit`);
-    const next = this.pending ?? this.dropPick(f);
-    this.pending = next;
-    if (next !== null) {
-      const fast: ShowTransition = { type: 'crossfade', durationMs: 250 };
-      this.pending = { ...next, transition: fast };
-      this.executePending('drop hit');
+    const held = now * 1000 < this.manualUntil;
+    const sceneAge = now - this.lastSceneAt;
+    const dwellOk = sceneAge >= this.dwellS;
+    const stale = sceneAge >= STALE_SCENE_S;
+    const builtUp = now - this.lastBuildT < 10;
+    const waiting = this.pending !== null;
+    const earned =
+      kind === 'mapped drop' ? true : kind === 'drop' ? builtUp || stale : stale;
+    if (!held && dwellOk && (waiting || earned)) {
+      const next = this.pending ?? this.dropPick(f);
+      this.pending = next;
+      if (next !== null) {
+        const fast: ShowTransition = { type: 'crossfade', durationMs: 250 };
+        this.pending = { ...next, transition: fast };
+        this.executePending('drop hit', now);
+      }
+      logDecision({
+        step: next !== null ? 'act' : 'local',
+        model: 'local',
+        input: `${kind} detected`,
+        result: next !== null ? this.lastReason : 'flash + intensity spike',
+        verify: null,
+        retries: 0,
+        latencyMs: null,
+      });
+      return;
     }
     logDecision({
-      step: next !== null ? 'act' : 'local',
+      step: 'local',
       model: 'local',
       input: `${kind} detected`,
-      result: next !== null ? this.lastReason : 'flash + intensity spike',
+      result: held ? 'held your pick — punch only' : 'inside the dwell — punch only',
       verify: null,
       retries: 0,
       latencyMs: null,
     });
   }
 
-  // Instant peak-energy pick for climax cuts when no Muse plan waits:
-  // drop-range scenes first, never the live scene, rotating through
-  // ties; tempo-matched speed so the cut moves with the track.
+  // Scored climax pick for when no Muse plan waits: hot drop-range
+  // scenes first, then the same criteria the planner scores (flyer
+  // pick, energy fit, dominant-band fit, pack variety), never the live
+  // scene or a fresh pick, rotating only through exact ties.
+  // Tempo-matched speed so the cut moves with the track.
   private dropPick(f: AudioFeatures): ShowPlan | null {
     const defs = this.opts.defs;
     if (defs.length === 0) return null;
-    const banned = new Set([this.live.visualId, ...this.lastPlans.map((p) => p.visualId)]);
+    const banned = new Set([this.live.visualId, ...this.lastPlans.map((p) => p.visualId), ...this.lastClimaxIds]);
     const fresh = defs.filter((d) => !banned.has(d.id));
-    const pool = fresh.length > 0 ? fresh : [...defs];
-    const hot = pool.filter((d) => (d.meta?.energyRange[1] ?? 0) >= 0.9);
-    const tops = hot.length > 0 ? hot : pool;
-    const def = tops[this.climaxCount % tops.length];
+    const pool = fresh.length > 0 ? fresh : defs.filter((d) => d.id !== this.live.visualId);
+    const cands = pool.length > 0 ? pool : [...defs];
+    const hot = cands.filter((d) => (d.meta?.energyRange[1] ?? 0) >= 0.9);
+    const tops = hot.length > 0 ? hot : cands;
+    const theme = this.opts.getTheme();
+    const words = [theme?.genre ?? '', theme?.mood ?? '', ...(theme?.motifs ?? [])].join(' ').toLowerCase();
+    const bands = { bass: f.bass, mid: f.mid, high: f.high } as const;
+    const domBand = (Object.keys(bands) as Array<keyof typeof bands>).reduce((a, b) =>
+      bands[a] >= bands[b] ? a : b,
+    );
+    const lastPacks = this.lastPlans.slice(-2).map((p) => packOf(p.visualId));
+    const scored = tops.map((d) => {
+      let s = 0;
+      const why: string[] = [];
+      if ((theme?.suggestedShaderIds ?? []).includes(d.id)) {
+        s += 3;
+        why.push('flyer pick');
+      }
+      const meta = d.meta;
+      if (meta && f.energy >= meta.energyRange[0] && f.energy <= meta.energyRange[1]) {
+        s += 2;
+        why.push('energy match');
+      }
+      const hits = [...(meta?.themeTags ?? []), ...(meta?.moods ?? [])].filter(
+        (tag) => tag && words.includes(tag.toLowerCase()),
+      );
+      if (hits.length > 0) {
+        s += 2 * hits.length;
+        why.push(`tags: ${hits.slice(0, 2).join(', ')}`);
+      }
+      const hay = `${d.id} ${d.name} ${[...(meta?.themeTags ?? []), ...(meta?.moods ?? [])].join(' ')}`.toLowerCase();
+      if (CLIMAX_BAND_WORDS[domBand].some((w) => hay.includes(w))) {
+        s += 2;
+        why.push(`${domBand}-led`);
+      }
+      if ((meta?.energyRange[1] ?? 0) >= 0.9) {
+        s += 1;
+        why.push('drop-energy');
+      }
+      if (lastPacks.length === 2 && lastPacks[0] === lastPacks[1] && lastPacks[0] === packOf(d.id)) {
+        s -= 2;
+      }
+      return { d, s, why };
+    });
+    const best = Math.max(...scored.map((c) => c.s));
+    const winners = scored.filter((c) => c.s === best);
+    const pick = winners[this.climaxCount % winners.length];
+    const def = pick.d;
     this.climaxCount += 1;
+    this.lastClimaxIds = [...this.lastClimaxIds, def.id].slice(-3);
     return {
       visualId: def.id,
       params: [def.params?.[0]?.def ?? 0.5, def.params?.[1]?.def ?? 0.5, def.params?.[2]?.def ?? 0.5],
@@ -563,7 +665,7 @@ export class ShowDirector {
       transition: { type: 'crossfade', durationMs: 250 },
       energyArc: 'peak',
       sectionSeconds: 15,
-      reason: `Drop cut to ${def.name} at ${Math.round(f.bpm)} bpm`,
+      reason: `Drop cut to ${def.name} at ${Math.round(f.bpm)} bpm — ${pick.why.join('; ') || 'rotation'}`,
     };
   }
 
@@ -645,7 +747,10 @@ export class ShowDirector {
     }
   }
 
-  private tweak(f: AudioFeatures): void {
+  // Continuous glide toward the plan target, called every frame. Same
+  // destinations the old 2s stepped tweak had, but time-based so the
+  // look never visibly steps on a timer.
+  private ease(now: number): void {
     const target = this.plan;
     const baseI = target?.intensity ?? 0.7;
     const baseS = target?.speed ?? 1;
@@ -654,15 +759,18 @@ export class ShowDirector {
       (this.arc === 'breakdown' ? Math.min(baseI, 0.4) : clamp(baseI + (this.arc === 'peak' ? 0.1 : 0), 0, 1)) *
       hold;
     const wantS = this.arc === 'breakdown' ? Math.min(baseS, 0.6) : baseS;
-    const wantE = (target?.params ?? this.live.extra).map((v, i) => this.live.extra[i] + (v - this.live.extra[i]) * 0.25) as [
+    const dt = this.lastEaseT > 0 ? Math.max(0, now - this.lastEaseT) : 1 / 60;
+    this.lastEaseT = now;
+    const k = 1 - Math.exp(-dt * 1.2);
+    const wantE = (target?.params ?? this.live.extra).map((v, i) => this.live.extra[i] + (v - this.live.extra[i]) * k) as [
       number,
       number,
       number,
     ];
     this.live = {
       ...this.live,
-      intensity: this.live.intensity + (wantI - this.live.intensity) * 0.25,
-      speed: this.live.speed + (wantS - this.live.speed) * 0.25,
+      intensity: this.live.intensity + (wantI - this.live.intensity) * k,
+      speed: this.live.speed + (wantS - this.live.speed) * k,
       extra: wantE,
       paletteEmphasis: target?.paletteEmphasis ?? this.live.paletteEmphasis,
     };
@@ -674,7 +782,11 @@ export class ShowDirector {
       paletteEmphasis: this.live.paletteEmphasis,
       sensitivity: this.sensitivity,
     });
-    // M7: texture follows the arc between plans (posts only on change).
+  }
+
+  // Slow look tick: texture follows the arc between plans (posts only
+  // on change) plus the easing log line.
+  private tickLook(f: AudioFeatures): void {
     const follow = pickTextureForPlan(this.plan?.texture, this.plan?.texMix, this.textures, this.arc);
     this.applyTexture(follow.id, follow.texMix, `arc ${this.arc}`);
     logDecision({
@@ -688,11 +800,13 @@ export class ShowDirector {
     });
   }
 
-  private executePending(why: string): void {
-    // A scene needs room to breathe: drops cut through, anything else
-    // waits out the gap (the pending plan survives for the next window).
-    if (why !== 'drop hit' && performance.now() / 1000 - this.lastSceneAt < MIN_SCENE_GAP_S) return;
-    this.lastSceneAt = performance.now() / 1000;
+  private executePending(why: string, now: number): void {
+    // A scene needs room to breathe: earned drop hits cut (the climax
+    // gate already checked the dwell), anything else waits out the
+    // pacing dwell (the pending plan survives for the next window).
+    // Stamped on frame time so rAF and test clocks agree.
+    if (why !== 'drop hit' && now - this.lastSceneAt < this.dwellS) return;
+    this.lastSceneAt = now;
     const plan = this.pending;
     if (!plan) return;
     this.pending = null;
