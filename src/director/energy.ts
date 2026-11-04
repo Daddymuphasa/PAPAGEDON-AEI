@@ -11,6 +11,8 @@ export const DROP_JUMP = 0.22; // rise inside the 2s window after a build
 export const DROP_PEAK = 0.75;
 export const BREAKDOWN_LEVEL = 0.3;
 export const BREAKDOWN_S = 8;
+export const BASS_SLAM_JUMP = 0.25; // bass rise inside the 2s window
+export const BASS_SLAM_PEAK = 0.8;
 export const SHIFT_DELTA = 0.2; // med-vs-long average gap
 export const SHIFT_S = 4; // recent confirmation span
 
@@ -73,6 +75,17 @@ export function isDrop(buf: EnergyBuffer, now: number, wasBuild: boolean): boole
   for (let i = 1; i < w.length; i++) jump = Math.max(jump, w[i].energy - w[i - 1].energy);
   if (jump < DROP_JUMP) return false;
   return wasBuild || buf.peak(SHORT_S, now) >= DROP_PEAK;
+}
+
+// Heavy 808/kick slam: a sharp bass jump to a high peak inside 2s.
+// Only the big hits qualify — everyday kicks stay below the peak.
+export function isBassSlam(buf: EnergyBuffer, now: number): boolean {
+  const w = buf.windowWithLead(SHORT_S, now);
+  if (w.length < 2) return false;
+  let jump = 0;
+  for (let i = 1; i < w.length; i++) jump = Math.max(jump, w[i].energy - w[i - 1].energy);
+  if (jump < BASS_SLAM_JUMP) return false;
+  return buf.peak(SHORT_S, now) >= BASS_SLAM_PEAK;
 }
 
 // Sustained low energy.

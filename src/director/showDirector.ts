@@ -21,7 +21,7 @@ import type {
   VisualParam,
   VisualizerInfo,
 } from '../types';
-import { EnergyBuffer, detectEvents, energyShifted } from './energy';
+import { EnergyBuffer, LONG_S, detectEvents, energyShifted, isBassSlam } from './energy';
 import { PROFILE_WINDOW_S, computeProfile } from '../inputs/audio/profile';
 import { rolesToDisplayPalette } from '../theme/roles';
 import { withBasePath } from '../basePath';
@@ -50,6 +50,11 @@ export const MAP_PRE_CUE_S = 2;
 export const MAP_PREP_HOLD = 0.65;
 export const MAP_PLANNER_SECTIONS = 3;
 export const MAP_PLANNER_HORIZON_S = 60;
+// Climax cuts: drops, 808 slams, and mapped drops landing within the
+// guard share one scene cut instead of machine-gunning the stage.
+export const CLIMAX_GUARD_S = 2;
+// Builds re-queue the planner this often at most (anticipation calls).
+export const BUILD_PLAN_GAP_S = 4;
 
 export interface DirectorView {
   visualId: string;
@@ -172,9 +177,12 @@ export class ShowDirector {
   private pending: ShowPlan | null = null;
   private lastPlans: ShowPlan[] = [];
   private arc: EnergyArc = 'sustain';
-  private recentEvents: AudioEvent[] = [];
+  private recentEvents: { e: AudioEvent; t: number }[] = [];
   private beatsSince = 0;
   private prevBeat = false;
+  private lastClimaxAt = -1e9;
+  private climaxCount = 0;
+  private lastF: AudioFeatures | null = null;
   private wasBuild = false;
   private lastBuildT = -1e9;
   private lastTweak = 0;
@@ -420,6 +428,7 @@ export class ShowDirector {
 
   frame(f: AudioFeatures, nowMs: number): void {
     const now = nowMs / 1000;
+    this.lastF = { ...f };
     this.energy.push(now, withVisionGain(f.energy, this.vision?.motion ?? 0));
     this.bassBuf.push(now, f.bass);
     this.midBuf.push(now, f.mid);
@@ -432,13 +441,16 @@ export class ShowDirector {
     this.prevBeat = f.beat;
 
     const events = detectEvents(this.energy, now, this.wasBuild);
-    for (const e of events) this.onEvent(e, f);
+    for (const e of events) this.onEvent(e, f, now);
     if (events.includes('build')) {
       this.wasBuild = true;
       this.lastBuildT = now;
     } else if (events.includes('drop') || now - this.lastBuildT > 10) {
       this.wasBuild = false;
     }
+    // Heavy 808/kick slams cut the scene like a drop — big bass hits
+    // land a new look even when overall energy doesn't jump.
+    if (isBassSlam(this.bassBuf, now)) this.climax('808 slam', f, now);
     this.mapCues(nowMs);
     this.listenProfile(f, nowMs);
 
@@ -464,30 +476,17 @@ export class ShowDirector {
     }
   }
 
-  private onEvent(e: AudioEvent, f: AudioFeatures): void {
-    this.recentEvents = [...this.recentEvents, e].slice(-6);
+  private onEvent(e: AudioEvent, f: AudioFeatures, now: number): void {
+    this.recentEvents = [...this.recentEvents, { e, t: now }].slice(-12);
     if (e === 'drop') {
-      this.arc = 'peak';
-      this.opts.onScene({ t: 'hit', flash: Math.min(1, 0.5 + f.energy * 0.5), boost: 0.3 });
-      // M7: drops cut straight to the drop-tagged artwork.
-      const dropTex = pickTextureForTag('drop', this.textures);
-      if (dropTex !== null) this.applyTexture(dropTex, this.texMix, 'drop hit');
-      if (this.pending) {
-        const fast: ShowTransition = { type: 'crossfade', durationMs: 250 };
-        this.pending = { ...this.pending, transition: fast };
-        this.executePending('drop hit');
-      }
-      logDecision({
-        step: 'local',
-        model: 'local',
-        input: 'drop detected',
-        result: this.pending ? 'fast fade on the drop' : 'flash + intensity spike',
-        verify: null,
-        retries: 0,
-        latencyMs: null,
-      });
+      this.climax('drop', f, now);
     } else if (e === 'build') {
       this.arc = 'build';
+      // Anticipation: queue the next scene DURING the build so a fresh
+      // plan is already pending when the drop lands the cut.
+      if (!this.plannerBusy && now - (this.lastPlannerCall ?? -1e9) > BUILD_PLAN_GAP_S) {
+        this.firePlanner();
+      }
       logDecision({
         step: 'local',
         model: 'local',
@@ -509,6 +508,69 @@ export class ShowDirector {
         latencyMs: null,
       });
     }
+  }
+
+  // Climax: a drop, 808 slam, or mapped drop always lands a scene cut
+  // with a fast fade. A waiting Muse plan wins; otherwise a local
+  // peak-energy pick cuts instantly so the hit never lands on a stale scene.
+  private climax(kind: 'drop' | '808 slam' | 'mapped drop', f: AudioFeatures, now: number): void {
+    if (now - this.lastClimaxAt < CLIMAX_GUARD_S) return;
+    this.lastClimaxAt = now;
+    // Slams and mapped drops read as drops in the music context.
+    if (kind !== 'drop') this.recentEvents = [...this.recentEvents, { e: 'drop', t: now }].slice(-12);
+    this.arc = 'peak';
+    this.opts.onScene({ t: 'hit', flash: Math.min(1, 0.5 + f.energy * 0.5), boost: 0.3 });
+    // M7: climaxes cut straight to the drop-tagged artwork.
+    const dropTex = pickTextureForTag('drop', this.textures);
+    if (dropTex !== null) this.applyTexture(dropTex, this.texMix, `${kind} hit`);
+    const next = this.pending ?? this.dropPick(f);
+    this.pending = next;
+    if (next !== null) {
+      const fast: ShowTransition = { type: 'crossfade', durationMs: 250 };
+      this.pending = { ...next, transition: fast };
+      this.executePending('drop hit');
+    }
+    logDecision({
+      step: next !== null ? 'act' : 'local',
+      model: 'local',
+      input: `${kind} detected`,
+      result: next !== null ? this.lastReason : 'flash + intensity spike',
+      verify: null,
+      retries: 0,
+      latencyMs: null,
+    });
+  }
+
+  // Instant peak-energy pick for climax cuts when no Muse plan waits:
+  // drop-range scenes first, never the live scene, rotating through
+  // ties; tempo-matched speed so the cut moves with the track.
+  private dropPick(f: AudioFeatures): ShowPlan | null {
+    const defs = this.opts.defs;
+    if (defs.length === 0) return null;
+    const banned = new Set([this.live.visualId, ...this.lastPlans.map((p) => p.visualId)]);
+    const fresh = defs.filter((d) => !banned.has(d.id));
+    const pool = fresh.length > 0 ? fresh : [...defs];
+    const hot = pool.filter((d) => (d.meta?.energyRange[1] ?? 0) >= 0.9);
+    const tops = hot.length > 0 ? hot : pool;
+    const def = tops[this.climaxCount % tops.length];
+    this.climaxCount += 1;
+    return {
+      visualId: def.id,
+      params: [def.params?.[0]?.def ?? 0.5, def.params?.[1]?.def ?? 0.5, def.params?.[2]?.def ?? 0.5],
+      intensity: clamp(0.85 + f.energy * 0.15, 0, 1),
+      speed: clamp(Math.round((f.bpm / 120) * 100) / 100 || 1, 0.6, 2),
+      paletteEmphasis: this.live.paletteEmphasis,
+      transition: { type: 'crossfade', durationMs: 250 },
+      energyArc: 'peak',
+      sectionSeconds: 15,
+      reason: `Drop cut to ${def.name} at ${Math.round(f.bpm)} bpm`,
+    };
+  }
+
+  // Events younger than the planner's 20s summary window — a stale drop
+  // must not pollute the music context or the Auto show readout.
+  private liveEvents(now: number): AudioEvent[] {
+    return [...new Set(this.recentEvents.filter((s) => now - s.t <= LONG_S).map((s) => s.e))];
   }
 
   // M5 map cues: ~2s before a mapped drop, arm a prep hold (the local
@@ -547,6 +609,9 @@ export class ShowDirector {
         retries: 0,
         latencyMs: null,
       });
+      // A mapped climax cuts the scene like an audio drop (guarded
+      // against double-cutting when the audio drop lands with it).
+      if (this.lastF) this.climax('mapped drop', this.lastF, nowMs / 1000);
     }
   }
 
@@ -691,7 +756,7 @@ export class ShowDirector {
       avgBass: this.bassBuf.avg(20, now),
       avgMid: this.midBuf.avg(20, now),
       avgHigh: this.highBuf.avg(20, now),
-      events: [...new Set(this.recentEvents)],
+      events: this.liveEvents(now),
       bpm: this.audio.bpm,
       seconds: 20,
     };
@@ -816,7 +881,7 @@ export class ShowDirector {
       sceneName: def?.name ?? this.live.visualId,
       reason: this.lastReason,
       arc: this.arc,
-      events: [...this.recentEvents],
+      events: this.liveEvents(now),
       countdownS: countdown,
       meters: {
         bass: f.bass,

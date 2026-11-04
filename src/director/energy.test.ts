@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 import {
   EnergyBuffer,
   energyShifted,
+  isBassSlam,
   isBreakdown,
   isBuild,
   isDrop,
@@ -59,5 +60,25 @@ describe('energy detection', () => {
   test('ignores steady energy for shifts', () => {
     const { buf, now } = series(() => 0.5, 20);
     expect(energyShifted(buf, now)).toBe(false);
+  });
+
+  test('finds an 808 slam on a sharp bass jump to a high peak', () => {
+    const { buf, now } = series((t) => (t < 18 ? 0.3 : 0.95), 20);
+    expect(isBassSlam(buf, now)).toBe(true);
+  });
+
+  test('ignores flat bass for slams', () => {
+    const { buf, now } = series(() => 0.5, 20);
+    expect(isBassSlam(buf, now)).toBe(false);
+  });
+
+  test('ignores a small bass lift without the jump', () => {
+    const { buf, now } = series((t) => (t < 18 ? 0.4 : 0.6), 20);
+    expect(isBassSlam(buf, now)).toBe(false);
+  });
+
+  test('ignores a bass jump that never peaks high', () => {
+    const { buf, now } = series((t) => (t < 18 ? 0.2 : 0.5), 20);
+    expect(isBassSlam(buf, now)).toBe(false);
   });
 });

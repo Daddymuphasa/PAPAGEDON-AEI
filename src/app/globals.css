@@ -117,7 +117,7 @@
 .pgx-camera-preview.is-on { opacity:.9; }
 .pgx-ui { position:absolute; inset:0; pointer-events:none; display:flex; flex-direction:column; }
 .pgx-ui > * { pointer-events:auto; }
-.pg-panel { background:rgba(11,17,14,.72); border:1px solid rgba(232,230,221,.09); border-radius:12px; padding:12px 14px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:0 12px 40px -18px rgba(0,0,0,.7); }
+.pg-panel { background:linear-gradient(165deg, rgba(26,34,30,.58), rgba(8,12,10,.52)); border:1px solid rgba(255,255,255,.10); border-top-color:rgba(255,255,255,.18); border-radius:16px; padding:12px 14px; backdrop-filter:blur(22px) saturate(1.25); -webkit-backdrop-filter:blur(22px) saturate(1.25); box-shadow:0 24px 60px -20px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.07); }
 .pg-btn { display:inline-flex; align-items:center; gap:.45rem; border:1px solid rgba(232,230,221,.16); background:rgba(255,255,255,.04); color:#E8E6DD; padding:.5rem .8rem; border-radius:8px; font:500 12px var(--font-inter),system-ui,sans-serif; cursor:pointer; transition:background .15s,border-color .15s; white-space:nowrap; }
 .pg-btn:hover:not(:disabled) { background:rgba(255,255,255,.09); }
 .pg-btn:disabled { opacity:.45; cursor:not-allowed; }
